@@ -1,0 +1,811 @@
+<meta charset="utf-8">
+<title>Blank Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a full-bleed nautical chart with a docked title block below it. The palette follows
+   chart conventions: buff land, tinted water, magenta for marked positions. Dark is night mode. */
+:root {
+  --sea: #cfe4ee; --land: #f1e4b8; --coast: #7d8a7c; --border: #a59a78; --grid: #a9c6d4;
+  --panel: #f7fafa; --panel-2: #e8f0f2; --ink: #12303e; --muted: #4d6673; --line: #bfd0d6;
+  --mark: #b0117a; --mark-ink: #ffffff; --pin: #12303e; --pick: #1769aa;
+  --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e;
+  --display: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
+  --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
+  --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
+  --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
+  --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); overflow: hidden; }
+* { box-sizing: border-box; }
+#app { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+
+#stage { position: relative; min-height: 0; overflow: hidden; background: var(--sea); }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#map.placing { cursor: crosshair; }
+#map:active { cursor: grabbing; }
+#map path { vector-effect: non-scaling-stroke; }
+.sphere { fill: var(--sea); stroke: var(--grid); stroke-width: 1; }
+.graticule { fill: none; stroke: var(--grid); stroke-width: .6; }
+.land { fill: var(--land); stroke: var(--coast); stroke-width: .6; }
+.borders { fill: none; stroke: var(--border); stroke-width: .6; stroke-linejoin: round; }
+#map .hl-area { fill: var(--mark); fill-opacity: .62; stroke: var(--mark); stroke-width: 1.4; }
+#map .hl-river { fill: none; stroke: var(--mark); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+#map .hl-river-halo { fill: none; stroke: var(--panel); stroke-width: 6; stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
+#map .hl-right { fill: var(--good); fill-opacity: .7; stroke: var(--good); stroke-width: 1.4; }
+#map .hl-chosen { fill: var(--bad); fill-opacity: .6; stroke: var(--bad); stroke-width: 1.4; }
+#map .sel-hover { fill: var(--pick); fill-opacity: .25; stroke: var(--pick); stroke-width: 1; pointer-events: none; }
+#map .sel-pick { fill: var(--pick); fill-opacity: .7; stroke: var(--pick); stroke-width: 1.6; pointer-events: none; }
+#map .gap { fill: none; stroke: var(--pin); stroke-width: 1.6; stroke-dasharray: 5 5; }
+.m-dot { fill: var(--mark); stroke: var(--panel); stroke-width: 2; }
+.m-ring { fill: none; stroke: var(--mark); stroke-width: 2.5; }
+.m-peak { fill: var(--mark); stroke: var(--panel); stroke-width: 2; stroke-linejoin: round; }
+.m-pin { fill: none; stroke: var(--pin); stroke-width: 2.5; }
+.m-pin-c { fill: var(--pin); }
+.m-pin-halo { fill: none; stroke: var(--panel); stroke-width: 5; stroke-opacity: .7; }
+
+#zoomctl { position: absolute; display: grid; gap: 6px;
+  top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); }
+#zoomctl button { width: 38px; height: 38px; padding: 0; font: 600 20px/1 var(--body); }
+#lang { position: absolute; display: flex;
+  top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); }
+#lang button { min-width: 42px; height: 38px; padding: 0 10px; font: 600 15px/1 var(--display); letter-spacing: .06em; }
+#lang button:first-child { border-radius: 3px 0 0 3px; }
+#lang button:last-child { border-radius: 0 3px 3px 0; margin-left: -1px; }
+#lang button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+#readout { position: absolute; bottom: 8px; left: max(12px, env(safe-area-inset-left, 0px));
+  font: 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+@media (hover: none) { #readout { display: none; } }
+
+#dock { background: var(--panel); border-top: 2px solid var(--ink); max-height: 66vh; overflow-y: auto;
+  padding-block: 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin-inline: auto; display: grid; gap: 10px; }
+
+button { font: 500 14px/1.2 var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--ink);
+  border-radius: 3px; padding: 9px 14px; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--panel-2); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--mark); filter: brightness(1.1); }
+button.quiet { border-color: var(--line); color: var(--muted); }
+:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+
+/* Setup */
+.setup { grid-template-columns: minmax(180px, 250px) minmax(0, 1fr); gap: 14px 32px; }
+.brand h1 { font: 700 44px/.95 var(--display); margin: 0 0 6px; letter-spacing: .005em; text-transform: uppercase; }
+.brand p { margin: 0 0 12px; color: var(--muted); }
+.brand small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.options { display: grid; gap: 10px; min-width: 0; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; inset: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; }
+.chip span { display: block; padding: 7px 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.chip span i { font: 12px var(--mono); font-style: normal; color: var(--muted); margin-left: 5px; }
+.chip input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--panel); font-weight: 500; }
+.chip input:checked + span i { color: inherit; }
+.chip input:focus-visible + span { outline: 3px solid var(--mark); outline-offset: 2px; }
+.start { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.start button { padding: 11px 28px; font-size: 16px; }
+.start span { color: var(--muted); }
+
+/* In play */
+.status { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; }
+.eyebrow { font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.total { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; }
+.tally { display: flex; gap: 3px; list-style: none; margin: 0; padding: 0; }
+.tally li { width: 20px; height: 6px; background: var(--panel-2); }
+.tally li.now { background: var(--ink); }
+.tally li.good { background: var(--good); } .tally li.ok { background: var(--ok); } .tally li.bad { background: var(--bad); }
+.prompt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; }
+.prompt > div:first-child { min-width: 0; flex: 1 1 300px; }
+.prompt h2 { font: 600 34px/1.05 var(--display); margin: 0; text-wrap: balance; }
+.prompt p { margin: 3px 0 0; color: var(--muted); }
+.prompt h2 .target { color: var(--mark); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.answer-form { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 340px; max-width: 560px; }
+.answer-form input { flex: 1 1 180px; min-width: 0; padding: 9px 12px; font: 500 16px var(--body); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--ink); border-radius: 3px; }
+.verdict { display: inline-block; font: 600 13px/1 var(--mono); padding: 4px 7px; border-radius: 2px; color: var(--panel); margin-right: 8px; vertical-align: 4px; font-variant-numeric: tabular-nums; }
+.verdict.good { background: var(--good); } .verdict.ok { background: var(--ok); } .verdict.bad { background: var(--bad); }
+
+/* Round summary */
+.summary-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
+.summary-head h2 { font: 700 40px/1 var(--display); margin: 0; font-variant-numeric: tabular-nums; }
+.summary-head h2 small { font: 500 24px var(--display); color: var(--muted); }
+.rank { font: 600 20px var(--display); color: var(--mark); margin-left: 12px; }
+.rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 0 28px; }
+.rows button { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; width: 100%; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 7px 2px; }
+.rows button em { font-style: normal; color: var(--muted); font-size: 13px; margin-left: 6px; }
+.rows button b { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; }
+.rows button b.good { color: var(--good); } .rows button b.ok { color: var(--ok); } .rows button b.bad { color: var(--bad); }
+.rows button.active { background: var(--panel-2); }
+
+@media (max-width: 720px) {
+  .setup { grid-template-columns: minmax(0, 1fr); }
+  .brand h1 { font-size: 36px; }
+  .brand small { display: none; }
+  .brand p { margin-bottom: 0; }
+  .prompt h2 { font-size: 28px; }
+  .tally li { width: 14px; }
+  #dock { max-height: 72vh; }
+}
+</style>
+
+<div id="app">
+  <div id="stage">
+    <svg id="map" role="application" aria-label="World map"></svg>
+    <div id="lang" role="group">
+      <button type="button" data-lang="de">DE</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+    <div id="zoomctl">
+      <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+      <button id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
+      <button id="zoom-home" type="button" aria-label="Show the whole region" title="Show the whole region">&#8982;</button>
+    </div>
+    <div id="readout" aria-hidden="true"></div>
+  </div>
+  <section id="dock" aria-live="polite"></section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="data.js"></script>
+<script>
+"use strict";
+const DATA = window.BLANK_MAP_DATA;
+const EARTH_KM = 6371;
+const ROUND_LENGTH = 10;
+const KINDS = ["country", "capital", "mountain", "river"];
+const REGIONS = {
+  World: { rotate: 0 },
+  Africa: { rotate: 0, box: [-20, -36, 55, 38] },
+  Asia: { rotate: 0, box: [25, -12, 150, 56] },
+  Europe: { rotate: 0, box: [-25, 34, 45, 71] },
+  "North America": { rotate: 0, box: [-170, 7, -50, 74] },
+  "South America": { rotate: 0, box: [-85, -57, -32, 14] },
+  Oceania: { rotate: -165, box: [112, -48, 208, 23] },
+};
+
+/* ---------- Language ---------- */
+const STRINGS = {
+  en: {
+    kinds: { country: "Countries", capital: "Capitals", mountain: "Mountains", river: "Rivers" },
+    one: { country: "Country", capital: "Capital city", mountain: "Mountain", river: "River" },
+    nameThis: { country: "Name this country", capital: "Name this capital city", mountain: "Name this mountain", river: "Name this river" },
+    regions: { World: "World", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica" },
+    types: { both: "Both", name: "Name it", find: "Find it" },
+    intro: "Name places on an unlabelled world map, or find them from their name.",
+    credit: "Map data: Natural Earth, public domain. Countries are the UN members plus Kosovo, Palestine, Taiwan and Vatican City. Borders are drawn for play and take no political position.",
+    legendAsk: "What to ask", legendHow: "How to answer", legendWhere: "Where", start: "Start round",
+    startNote: "{n} questions, up to 100 points each", startEmpty: "Choose something to ask about in this region.",
+    question: "Question {i} of {n}", points: "pts", find: "Find {name}",
+    hintPin: "Click the map to place your pin. Scroll or pinch to zoom.",
+    hintCountry: "Click a country to colour it in. Scroll or pinch to zoom.",
+    hintSpelling: "Small spelling mistakes are fine.", placeholder: "Type the name", answerLabel: "Your answer",
+    skip: "Skip", confirm: "Confirm", answer: "Answer", next: "Next question", results: "See results",
+    again: "Play again", change: "Change settings",
+    skipped: "Skipped", correct: "Correct",
+    rightCountry: "You coloured in the right country.",
+    chose: "You chose {name}, {km} km away.", choseArea: "You chose another area, {km} km away.",
+    pinNear: "Your pin is {km} km away, close enough for full points.", pinFar: "Your pin is {km} km away.",
+    close: "Close enough: you typed “{typed}”.", typed: "You typed “{typed}”.",
+    factCapital: "Capital: {name}.", capitalOf: "Capital of {name}.", about: "About {area}.",
+    million: "million km²", river: "About {km} km long, flowing into {mouth}.",
+    ranks: ["Uncharted waters", "Coastal pilot", "Ocean navigator", "Master cartographer"],
+    zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
+  },
+  de: {
+    kinds: { country: "Länder", capital: "Hauptstädte", mountain: "Berge", river: "Flüsse" },
+    one: { country: "Land", capital: "Hauptstadt", mountain: "Berg", river: "Fluss" },
+    nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
+    regions: { World: "Welt", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika" },
+    types: { both: "Beides", name: "Benennen", find: "Finden" },
+    intro: "Benenne Orte auf einer unbeschrifteten Weltkarte oder finde sie anhand ihres Namens.",
+    credit: "Kartendaten: Natural Earth, gemeinfrei. Länder sind die UN-Mitglieder sowie Kosovo, Palästina, Taiwan und die Vatikanstadt. Die Grenzen dienen nur dem Spiel und sind keine politische Aussage.",
+    legendAsk: "Was wird gefragt", legendHow: "Wie antworten", legendWhere: "Wo", start: "Runde starten",
+    startNote: "{n} Fragen, jeweils bis zu 100 Punkte", startEmpty: "Wähle etwas aus, das es in dieser Region gibt.",
+    question: "Frage {i} von {n}", points: "Pkt.", find: "Finde {name}",
+    hintPin: "Klicke auf die Karte, um deine Nadel zu setzen. Scrolle oder ziehe mit zwei Fingern zum Zoomen.",
+    hintCountry: "Klicke auf ein Land, um es einzufärben. Scrolle oder ziehe mit zwei Fingern zum Zoomen.",
+    hintSpelling: "Kleine Tippfehler sind kein Problem.", placeholder: "Name eingeben", answerLabel: "Deine Antwort",
+    skip: "Überspringen", confirm: "Bestätigen", answer: "Antworten", next: "Nächste Frage", results: "Zum Ergebnis",
+    again: "Nochmal spielen", change: "Einstellungen ändern",
+    skipped: "Übersprungen", correct: "Richtig",
+    rightCountry: "Du hast das richtige Land eingefärbt.",
+    chose: "Du hast {name} gewählt, {km} km entfernt.", choseArea: "Du hast ein anderes Gebiet gewählt, {km} km entfernt.",
+    pinNear: "Deine Nadel ist {km} km entfernt, nah genug für die volle Punktzahl.", pinFar: "Deine Nadel ist {km} km entfernt.",
+    close: "Nah genug: Du hast „{typed}“ eingegeben.", typed: "Du hast „{typed}“ eingegeben.",
+    factCapital: "Hauptstadt: {name}.", capitalOf: "Hauptstadt von {name}.", about: "Rund {area}.",
+    million: "Mio. km²", river: "Rund {km} km lang, mündet in {mouth}.",
+    ranks: ["Unbekannte Gewässer", "Küstengewässer", "Hochseetauglich", "Meisterhafte Kartografie"],
+    zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
+  },
+};
+function storedLanguage() {
+  try { const saved = localStorage.getItem("blank-map-lang"); if (STRINGS[saved]) return saved; } catch (e) {}
+  return (navigator.language || "").toLowerCase().startsWith("de") ? "de" : "en";
+}
+let lang = storedLanguage();
+const S = () => STRINGS[lang];
+const fill = (text, vars = {}) => text.replace(/\{(\w+)\}/g, (_, k) => vars[k]);
+const num = n => Math.round(n).toLocaleString(lang);
+const label = item => item.names[lang];
+
+/* ---------- Content ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const countriesObject = DATA.world.objects.countries;
+const allFeatures = topojson.feature(DATA.world, countriesObject).features;
+
+function countryGeometry(c) {
+  if (c.point) return d3.geoCircle().center(c.point).radius(0.12)();
+  const names = [c.shape, ...c.extra];
+  return topojson.merge(DATA.world, countriesObject.geometries.filter(g => names.includes(g.properties.name)));
+}
+function areaKm2(geo) { return d3.geoArea(geo) * EARTH_KM * EARTH_KM; }
+function roundArea(km2) {
+  if (km2 >= 1e6) return `${(km2 / 1e6).toLocaleString(lang, { maximumFractionDigits: 1 })} ${S().million}`;
+  return `${num(Math.round(km2 / 1000) * 1000)} km²`;
+}
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const sentence = text => text[0].toUpperCase() + text.slice(1);
+
+const ITEMS = [];
+for (const c of DATA.countries) {
+  const geo = countryGeometry(c);
+  const size = Math.sqrt(areaKm2(geo));
+  const country = { kind: "country", names: { en: c.name, de: c.de.name }, aliases: [...c.aliases, ...c.de.aliases], region: c.region, geo, size,
+    full: 60, zero: clamp(1.2 * size, 300, 1200),
+    fact() {
+      const parts = [c.capital ? fill(S().factCapital, { name: lang === "de" ? c.capitalDe.name : c.capital }) : "", `${S().regions[c.region]}.`];
+      if (size > 100) parts.push(fill(S().about, { area: roundArea(size * size) }));
+      return parts.filter(Boolean).join(" ");
+    } };
+  ITEMS.push(country);
+  if (c.capital) ITEMS.push({ kind: "capital", names: { en: c.capital, de: c.capitalDe.name },
+    aliases: [...c.capitalAliases, ...c.capitalDe.aliases], region: c.region,
+    geo: { type: "Point", coordinates: c.capitalCoord },
+    full: 40, zero: clamp(1.5 * size, 400, 2000),
+    fact() {
+      const note = lang === "de" ? c.capitalDe.note : c.capitalNote;
+      return fill(S().capitalOf, { name: label(country) }) + (note ? " " + note : "");
+    } });
+}
+for (const m of DATA.mountains) ITEMS.push({ kind: "mountain", names: { en: m.name, de: m.de.name }, aliases: [...m.aliases, ...m.de.aliases], region: m.region,
+  geo: { type: "Point", coordinates: m.coord }, full: 75, zero: 1500,
+  fact: () => `${num(m.elevation)} m. ${sentence(lang === "de" ? m.de.range : m.range)}, ${lang === "de" ? m.de.where : m.where}.` });
+for (const r of DATA.rivers) ITEMS.push({ kind: "river", names: { en: r.name, de: r.de.name }, aliases: [...r.aliases, ...r.de.aliases], region: r.region,
+  geo: { type: "MultiLineString", coordinates: r.lines }, full: 50, zero: clamp(r.length * 0.4, 400, 1500),
+  fact: () => fill(S().river, { km: num(r.length), mouth: lang === "de" ? r.de.mouth : r.mouth }) });
+
+/* Everything a click can colour in: quiz countries, plus territories such as Greenland that aren't asked about. */
+const claimed = new Set(DATA.countries.flatMap(c => [c.shape, ...c.extra]));
+const quizCountries = ITEMS.filter(i => i.kind === "country");
+const HITS = [
+  ...quizCountries.map(item => ({ item, geo: item.geo })),
+  ...allFeatures.filter(f => !claimed.has(f.properties.name)).map(f => ({ item: null, geo: f })),
+].map(h => ({ ...h, bounds: d3.geoBounds(h.geo) }));
+function hitAt(lonLat) {
+  const [lon, lat] = lonLat;
+  return HITS.find(({ bounds: [[w, s], [e, n]], geo }) =>
+    lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e) && d3.geoContains(geo, lonLat)) || null;
+}
+
+/* ---------- Answer matching ---------- */
+function normalize(text) {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/[.'’ʻ`]/g, "").replace(/[-,/]/g, " ")
+    .replace(/\bsaint\b/g, "st")
+    .replace(/^(the|der|die|das|mount|mt|river|rio|lake)\s+/, "").replace(/\s+(river|mountain|fluss)$/, "")
+    .replace(/\s+/g, " ").trim();
+}
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++)
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = row;
+  }
+  return prev[b.length];
+}
+const namesByKind = {};
+for (const item of ITEMS) {
+  const set = namesByKind[item.kind] ||= new Set();
+  /* Both languages always count, whichever one the game is showing. */
+  item.accepted = [item.names.en, item.names.de, ...item.aliases].map(normalize);
+  for (const n of item.accepted) set.add(n);
+}
+/* "exact", "close" (a typo) or "wrong". Another real name, like Austria for Australia, is never a typo. */
+function matchAnswer(item, typed) {
+  const guess = normalize(typed);
+  if (!guess) return "wrong";
+  if (item.accepted.includes(guess)) return "exact";
+  if (namesByKind[item.kind].has(guess)) return "wrong";
+  return item.accepted.some(a => editDistance(a, guess) <= (a.length <= 4 ? 0 : a.length <= 7 ? 1 : 2)) ? "close" : "wrong";
+}
+
+/* ---------- Distance scoring ---------- */
+function eachCoord(coords, fn) {
+  if (typeof coords[0] === "number") fn(coords); else for (const c of coords) eachCoord(c, fn);
+}
+function nearest(item, lonLat) {
+  if (item.kind === "country" && d3.geoContains(item.geo, lonLat)) return { km: 0, at: null };
+  let best = Infinity, at = null;
+  eachCoord(item.geo.coordinates, p => {
+    const d = d3.geoDistance(p, lonLat);
+    if (d < best) { best = d; at = p; }
+  });
+  return { km: best * EARTH_KM, at };
+}
+function pointsFor(item, km) {
+  if (km <= item.full) return 100;
+  if (km >= item.zero) return 0;
+  return Math.round(100 * Math.pow(1 - (km - item.full) / (item.zero - item.full), 1.5));
+}
+const band = p => p >= 80 ? "good" : p >= 40 ? "ok" : "bad";
+function pickRound(kinds, region, type) {
+  const pools = kinds.map(k => d3.shuffle(ITEMS.filter(i => i.kind === k && (region === "World" || i.region === region))));
+  const out = [];
+  d3.shuffle(pools);
+  for (let i = 0; out.length < ROUND_LENGTH && pools.some(p => p.length); i++) {
+    const pool = pools[i % pools.length];
+    if (pool.length) out.push({ item: pool.pop(), mode: type === "both" ? (Math.random() < .5 ? "name" : "find") : type });
+  }
+  return d3.shuffle(out);
+}
+
+/* ---------- Map ---------- */
+const svg = d3.select("#map");
+const zoomLayer = svg.append("g");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const projection = d3.geoNaturalEarth1();
+const geoPath = d3.geoPath(projection);
+const graticule = d3.geoGraticule().step([30, 30])();
+const borders = topojson.mesh(DATA.world, countriesObject, (a, b) => {
+  if (a === b) return false;
+  const pair = [a.properties.name, b.properties.name];
+  return !(pair.includes("Somaliland") && pair.includes("Somalia")) && !(pair.includes("N. Cyprus") && pair.includes("Cyprus"));
+});
+const base = {
+  sphere: zoomLayer.append("path").attr("class", "sphere"),
+  graticule: zoomLayer.append("path").attr("class", "graticule"),
+  land: zoomLayer.append("path").attr("class", "land"),
+  borders: zoomLayer.append("path").attr("class", "borders"),
+};
+const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
+const pickPath = zoomLayer.append("path").attr("class", "sel-pick");
+const overlay = zoomLayer.append("g");
+const markers = zoomLayer.append("g");
+let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null;
+
+const zoom = d3.zoom().scaleExtent([1, 80]).on("zoom", e => {
+  zoomLayer.attr("transform", e.transform);
+  currentK = e.transform.k;
+  markers.selectAll("g").attr("transform", d => `translate(${d.x},${d.y}) scale(${1 / currentK})`);
+});
+svg.call(zoom).on("dblclick.zoom", null);
+
+function drawBase() {
+  base.sphere.attr("d", geoPath({ type: "Sphere" }));
+  base.graticule.attr("d", geoPath(graticule));
+  base.land.attr("d", geoPath({ type: "FeatureCollection", features: allFeatures }));
+  base.borders.attr("d", geoPath(borders));
+  redrawPicks();
+}
+function redrawPicks() {
+  const hit = game.pick && game.pick.hit;
+  pickPath.attr("d", hit ? geoPath(hit.geo) : null);
+  hoverPath.attr("d", game.hover && game.hover !== hit ? geoPath(game.hover.geo) : null);
+}
+function layout() {
+  const box = document.getElementById("stage").getBoundingClientRect();
+  if (!box.width || !box.height || (box.width === viewW && box.height === viewH)) return false;
+  viewW = box.width; viewH = box.height;
+  svg.attr("viewBox", `0 0 ${viewW} ${viewH}`);
+  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], { type: "Sphere" });
+  zoom.extent([[0, 0], [viewW, viewH]]).translateExtent([[-viewW * .4, -viewH * .4], [viewW * 1.4, viewH * 1.4]]);
+  drawBase();
+  return true;
+}
+function setRotation(lon) {
+  if (projection.rotate()[0] === lon) return;
+  projection.rotate([lon, 0]);
+  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], { type: "Sphere" });
+  drawBase();
+}
+function applyView(bounds, { pad = .08, maxK = 80, instant = false } = {}) {
+  const [[x0, y0], [x1, y1]] = bounds;
+  const k = clamp(Math.min(viewW * (1 - 2 * pad) / Math.max(x1 - x0, 1), viewH * (1 - 2 * pad) / Math.max(y1 - y0, 1)), 1, maxK);
+  const t = d3.zoomIdentity.translate(viewW / 2 - k * (x0 + x1) / 2, viewH / 2 - k * (y0 + y1) / 2).scale(k);
+  svg.interrupt();
+  (instant || reduceMotion ? svg : svg.transition().duration(750).ease(d3.easeCubicInOut)).call(zoom.transform, t);
+  return k;
+}
+function regionBounds(region) {
+  const box = REGIONS[region].box;
+  if (!box) return geoPath.bounds({ type: "Sphere" });
+  const [w, s, e, n] = box;
+  const pts = [];
+  for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) pts.push(projection([w + (e - w) * i / 8, s + (n - s) * j / 8]));
+  return [[d3.min(pts, p => p[0]), d3.min(pts, p => p[1])], [d3.max(pts, p => p[0]), d3.max(pts, p => p[1])]];
+}
+function showRegion(region, opts) {
+  homeRegion = region;
+  setRotation(REGIONS[region].rotate);
+  activeView = () => showRegion(region, { instant: true });
+  applyView(regionBounds(region), { pad: .02, ...opts });
+}
+/* Bounds of the parts of a place that matter, so French Guiana doesn't zoom France out to the Atlantic. */
+function focusBounds(item, minDegrees) {
+  let geo = item.geo;
+  if (geo.type === "MultiPolygon") {
+    const areas = geo.coordinates.map(c => d3.geoArea({ type: "Polygon", coordinates: c }));
+    const biggest = d3.max(areas);
+    geo = { type: "MultiPolygon", coordinates: geo.coordinates.filter((_, i) => areas[i] >= biggest * .15) };
+  }
+  const [[x0, y0], [x1, y1]] = geoPath.bounds(geo);
+  const min = minDegrees * viewW / 360 * (projection.scale() / (viewW / 6.2));
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const hw = Math.max((x1 - x0) / 2, min / 2), hh = Math.max((y1 - y0) / 2, min / 2);
+  return [[cx - hw, cy - hh], [cx + hw, cy + hh]];
+}
+function clearMarks() {
+  overlay.selectAll("*").remove();
+  markers.selectAll("*").remove();
+  game.pick = null; game.hover = null;
+  redrawPicks();
+}
+function addMarker(lonLat, draw) {
+  const [x, y] = projection(lonLat);
+  const g = markers.append("g").datum({ x, y }).attr("transform", `translate(${x},${y}) scale(${1 / currentK})`);
+  draw(g);
+}
+const drawDot = g => g.append("circle").attr("class", "m-dot").attr("r", 6);
+const drawPeak = g => g.append("path").attr("class", "m-peak").attr("d", "M0,-10L9,6L-9,6Z");
+const drawRing = g => g.append("circle").attr("class", "m-ring").attr("r", 13);
+function drawPin(g) {
+  g.append("circle").attr("class", "m-pin-halo").attr("r", 9);
+  g.append("circle").attr("class", "m-pin").attr("r", 9);
+  g.append("circle").attr("class", "m-pin-c").attr("r", 2.5);
+}
+function highlight(item, targetK, right = false) {
+  if (item.kind === "river") {
+    overlay.append("path").attr("class", "hl-river-halo").attr("d", geoPath(item.geo));
+    overlay.append("path").attr("class", "hl-river").attr("d", geoPath(item.geo));
+  } else if (item.kind === "country") {
+    overlay.append("path").attr("class", right ? "hl-right" : "hl-area").attr("d", geoPath(item.geo));
+    if (Math.sqrt(geoPath.area(item.geo)) * targetK < 16) addMarker(d3.geoCentroid(item.geo), drawRing);
+  } else {
+    addMarker(item.geo.coordinates, item.kind === "mountain" ? drawPeak : drawDot);
+  }
+}
+/* Question view for "Name it": the place in context, with enough surroundings to reason from. */
+function showQuestion(item) {
+  clearMarks();
+  setRotation(item.region === "Oceania" ? -165 : REGIONS[homeRegion].rotate);
+  const opts = { pad: .22, maxK: 40 };
+  const bounds = focusBounds(item, item.kind === "river" ? 14 : item.kind === "country" ? 14 : 34);
+  activeView = () => showQuestion(item);
+  highlight(item, kForBounds(bounds, opts.pad, opts.maxK));
+  applyView(bounds, opts);
+}
+function kForBounds([[x0, y0], [x1, y1]], pad, maxK) {
+  return clamp(Math.min(viewW * (1 - 2 * pad) / Math.max(x1 - x0, 1), viewH * (1 - 2 * pad) / Math.max(y1 - y0, 1)), 1, maxK);
+}
+/* Answer view: the place, the player's pin or coloured-in country, and the line between them. */
+function showReveal(item, guess, hit) {
+  clearMarks();
+  activeView = () => showReveal(item, guess, hit);
+  const right = !!hit && hit.item === item;
+  if (hit && !right) overlay.append("path").attr("class", "hl-chosen").attr("d", geoPath(hit.geo));
+  let bounds = focusBounds(item, 16);
+  if (guess) {
+    const p = projection(guess);
+    bounds = [[Math.min(bounds[0][0], p[0]), Math.min(bounds[0][1], p[1])], [Math.max(bounds[1][0], p[0]), Math.max(bounds[1][1], p[1])]];
+    const { at } = nearest(item, guess);
+    if (at) overlay.append("path").attr("class", "gap").attr("d", geoPath({ type: "LineString", coordinates: [guess, at] }));
+  }
+  highlight(item, kForBounds(bounds, .18, 40), right);
+  if (guess && !hit) addMarker(guess, drawPin);
+  applyView(bounds, { pad: .18, maxK: 40 });
+}
+function eventLonLat(event) {
+  const [mx, my] = d3.pointer(event, svg.node());
+  const t = d3.zoomTransform(svg.node());
+  const ll = projection.invert(t.invert([mx, my]));
+  if (!ll || Math.abs(ll[1]) > 90) return null;
+  const center = -projection.rotate()[0];
+  if (Math.abs(ll[0] - center) > 180) return null;
+  return [((ll[0] + 540) % 360) - 180, ll[1]];
+}
+function formatCoord(v, pos, neg) {
+  const a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60);
+  return `${d}°${String(m).padStart(2, "0")}′${v >= 0 ? pos : neg}`;
+}
+const readout = document.getElementById("readout");
+svg.on("pointermove", e => {
+  const ll = eventLonLat(e);
+  readout.textContent = ll ? `${formatCoord(ll[1], "N", "S")}  ${formatCoord(ll[0], "E", "W")}` : "";
+  if (e.pointerType === "mouse" && e.buttons === 0) previewCountry(ll);
+});
+svg.on("pointerleave", () => { readout.textContent = ""; previewCountry(null); });
+/* Tints the country under the mouse while a "find this country" question is open. */
+function previewCountry(ll) {
+  const open = game.phase === "question" && game.round[game.index].mode === "find" && game.round[game.index].item.kind === "country";
+  const hit = open && ll ? hitAt(ll) : null;
+  if (hit === game.hover) return;
+  game.hover = hit;
+  redrawPicks();
+}
+document.getElementById("zoom-in").onclick = () => svg.transition().duration(reduceMotion ? 0 : 200).call(zoom.scaleBy, 1.8);
+document.getElementById("zoom-out").onclick = () => svg.transition().duration(reduceMotion ? 0 : 200).call(zoom.scaleBy, 1 / 1.8);
+document.getElementById("zoom-home").onclick = () => activeView && activeView();
+
+/* ---------- Game ---------- */
+const dock = document.getElementById("dock");
+const settings = { kinds: new Set(KINDS), type: "both", region: "World" };
+const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null };
+
+function refit() { if (layout() && activeView) activeView(); }
+function setDock(html) { dock.innerHTML = html; dock.scrollTop = 0; refit(); }
+function poolCount(kind, region) { return ITEMS.filter(i => i.kind === kind && (region === "World" || i.region === region)).length; }
+
+function setupDock() {
+  const s = S();
+  setDock(`<div class="wrap setup">
+    <div class="brand">
+      <h1>Blank Map</h1>
+      <p>${s.intro}</p>
+      <small>${s.credit}</small>
+    </div>
+    <form class="options" id="setup-form">
+      <fieldset><legend>${s.legendAsk}</legend><div class="chips">
+        ${KINDS.map(k => `<label class="chip"><input type="checkbox" id="kind-${k}" name="kind" value="${k}" ${settings.kinds.has(k) ? "checked" : ""}><span>${s.kinds[k]}<i data-count="${k}"></i></span></label>`).join("")}
+      </div></fieldset>
+      <fieldset><legend>${s.legendHow}</legend><div class="chips">
+        ${Object.entries(s.types).map(([k, v]) => `<label class="chip"><input type="radio" id="type-${k}" name="type" value="${k}" ${settings.type === k ? "checked" : ""}><span>${v}</span></label>`).join("")}
+      </div></fieldset>
+      <fieldset><legend>${s.legendWhere}</legend><div class="chips">
+        ${Object.keys(REGIONS).map(r => `<label class="chip"><input type="radio" id="region-${r.replace(" ", "-")}" name="region" value="${r}" ${settings.region === r ? "checked" : ""}><span>${s.regions[r]}</span></label>`).join("")}
+      </div></fieldset>
+      <div class="start"><button class="primary" id="start" type="submit">${s.start}</button><span id="start-note"></span></div>
+    </form></div>`);
+  const form = document.getElementById("setup-form");
+  const update = () => {
+    settings.kinds = new Set([...form.querySelectorAll("[name=kind]:checked")].map(i => i.value));
+    settings.type = form.querySelector("[name=type]:checked").value;
+    const region = form.querySelector("[name=region]:checked").value;
+    if (region !== settings.region) { settings.region = region; showRegion(region); }
+    let pool = 0;
+    for (const k of KINDS) {
+      const n = poolCount(k, region);
+      form.querySelector(`[data-count=${k}]`).textContent = n;
+      if (settings.kinds.has(k)) pool += n;
+    }
+    form.querySelector("#start").disabled = !pool;
+    document.getElementById("start-note").textContent = pool ? fill(S().startNote, { n: Math.min(pool, ROUND_LENGTH) }) : S().startEmpty;
+  };
+  form.addEventListener("change", update);
+  form.addEventListener("submit", e => { e.preventDefault(); startRound(); });
+  update();
+}
+function renderSetup() {
+  game.phase = "setup";
+  game.drawDock = setupDock;
+  svg.classed("placing", false);
+  clearMarks();
+  setupDock();
+  showRegion(settings.region);
+}
+function startRound() {
+  game.round = pickRound([...settings.kinds], settings.region, settings.type);
+  game.index = 0; game.total = 0;
+  if (game.round.length) renderQuestion();
+}
+function statusBar(q) {
+  const s = S();
+  const tiles = game.round.map((r, i) => `<li class="${r.points != null ? band(r.points) : i === game.index ? "now" : ""}"></li>`).join("");
+  return `<div class="status"><span class="eyebrow">${fill(s.question, { i: game.index + 1, n: game.round.length })} · ${s.types[q.mode]}</span>
+    <ol class="tally" aria-hidden="true">${tiles}</ol><span class="total">${game.total} ${s.points}</span></div>`;
+}
+function questionDock() {
+  const s = S();
+  const q = game.round[game.index];
+  if (q.mode === "find") {
+    const hint = q.item.kind === "country" ? s.hintCountry : s.hintPin;
+    setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
+      <div><h2>${fill(s.find, { name: `<span class="target">${esc(label(q.item))}</span>` })}</h2><p>${s.one[q.item.kind]}. ${hint}</p></div>
+      <div class="actions"><button class="quiet" id="skip" type="button">${s.skip}</button><button class="primary" id="confirm" type="button" ${game.pick ? "" : "disabled"}>${s.confirm}</button></div>
+    </div></div>`);
+    document.getElementById("skip").onclick = () => answerFind(null);
+    document.getElementById("confirm").onclick = () => answerFind(game.pick);
+  } else {
+    const typed = document.getElementById("answer")?.value || "";
+    setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
+      <div><h2>${s.nameThis[q.item.kind]}</h2><p>${s.hintSpelling}</p></div>
+      <form class="answer-form" id="answer-form" autocomplete="off">
+        <input id="answer" type="text" aria-label="${s.answerLabel}" placeholder="${s.placeholder}" autocomplete="off" autocapitalize="words" spellcheck="false" value="${esc(typed)}">
+        <button class="primary" type="submit">${s.answer}</button><button class="quiet" id="skip" type="button">${s.skip}</button>
+      </form></div></div>`);
+    document.getElementById("answer-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const value = document.getElementById("answer").value;
+      if (value.trim()) answerName(value);
+      else document.getElementById("answer").focus();
+    });
+    document.getElementById("skip").onclick = () => answerName("");
+    document.getElementById("answer").focus({ preventScroll: true });
+  }
+}
+function renderQuestion() {
+  game.phase = "question";
+  game.pick = null;
+  game.drawDock = questionDock;
+  const q = game.round[game.index];
+  const answerBox = document.getElementById("answer");
+  if (answerBox) answerBox.value = "";
+  questionDock();
+  if (q.mode === "find") {
+    clearMarks();
+    svg.classed("placing", true);
+    showRegion(settings.region);
+  } else {
+    svg.classed("placing", false);
+    showQuestion(q.item);
+  }
+}
+svg.on("click", e => {
+  if (game.phase !== "question" || game.round[game.index].mode !== "find") return;
+  const ll = eventLonLat(e);
+  if (!ll) return;
+  const hit = game.round[game.index].item.kind === "country" ? hitAt(ll) : null;
+  game.pick = { ll, hit };
+  game.hover = null;
+  markers.selectAll("*").remove();
+  if (!hit) addMarker(ll, drawPin);
+  redrawPicks();
+  const confirm = document.getElementById("confirm");
+  confirm.disabled = false;
+  confirm.focus({ preventScroll: true });
+});
+function feedbackText(q) {
+  const s = S(), r = q.result, km = num(r.km || 0);
+  const name = r.hit && r.hit.item ? label(r.hit.item) : null;
+  return {
+    skipped: s.skipped + ".",
+    right: s.rightCountry,
+    chose: name ? fill(s.chose, { name, km }) : fill(s.choseArea, { km }),
+    near: fill(s.pinNear, { km }),
+    far: fill(s.pinFar, { km }),
+    exact: s.correct + ".",
+    close: fill(s.close, { typed: r.typed }),
+    wrong: fill(s.typed, { typed: r.typed }),
+  }[r.type];
+}
+function shortResult(q) {
+  const s = S(), r = q.result;
+  if (r.type === "skipped") return s.skipped;
+  if (r.type === "right" || r.type === "exact" || r.type === "close") return s.correct;
+  if (r.type === "wrong") return lang === "de" ? `„${r.typed}“` : `“${r.typed}”`;
+  return `${num(r.km)} km`;
+}
+function feedbackDock() {
+  const s = S();
+  const q = game.round[game.index];
+  const last = game.index === game.round.length - 1;
+  setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
+    <div><h2><span class="verdict ${band(q.points)}">+${q.points}</span>${esc(label(q.item))}</h2>
+    <p>${esc(feedbackText(q))} ${esc(q.item.fact())}</p></div>
+    <div class="actions"><button class="primary" id="next" type="button">${last ? s.results : s.next}</button></div>
+  </div></div>`);
+  const next = document.getElementById("next");
+  next.onclick = () => { game.index++; last ? renderSummary() : renderQuestion(); };
+  next.focus({ preventScroll: true });
+}
+function finishAnswer(q, points, result) {
+  q.points = points; q.result = result;
+  game.total += points;
+  game.phase = "feedback";
+  game.drawDock = feedbackDock;
+  svg.classed("placing", false);
+  feedbackDock();
+}
+/* A coloured-in neighbour is a wrong country, so it earns less than a hit. Tiny countries stay forgiving,
+   because at world zoom the click almost always lands on the country around them. */
+function pointsForPick(item, km, hit) {
+  if (km === 0) return 100;
+  if (!hit || item.size < 100) return pointsFor(item, km);
+  return Math.min(80, pointsFor({ full: 0, zero: item.zero }, km));
+}
+function answerFind(pick) {
+  const q = game.round[game.index];
+  q.guess = pick ? pick.ll : null;
+  q.hit = pick ? pick.hit : null;
+  if (!pick) { showReveal(q.item, null, null); return finishAnswer(q, 0, { type: "skipped" }); }
+  const { km } = nearest(q.item, pick.ll);
+  const isCountry = q.item.kind === "country";
+  const points = isCountry ? pointsForPick(q.item, km, pick.hit) : pointsFor(q.item, km);
+  showReveal(q.item, pick.ll, pick.hit);
+  const type = km === 0 ? "right" : pick.hit ? "chose" : km <= q.item.full ? "near" : "far";
+  finishAnswer(q, points, { type, km, hit: pick.hit });
+}
+function answerName(typed) {
+  const q = game.round[game.index];
+  q.guess = null; q.hit = null;
+  showReveal(q.item, null, null);
+  if (!typed) return finishAnswer(q, 0, { type: "skipped" });
+  const result = matchAnswer(q.item, typed);
+  finishAnswer(q, result === "wrong" ? 0 : 100, { type: result, typed: typed.trim() });
+}
+function summaryDock() {
+  const s = S();
+  const max = game.round.length * 100, pct = game.total / max;
+  const rank = s.ranks[pct >= .9 ? 3 : pct >= .7 ? 2 : pct >= .4 ? 1 : 0];
+  setDock(`<div class="wrap">
+    <div class="summary-head"><h2>${game.total} <small>/ ${max}</small><span class="rank">${rank}</span></h2>
+      <div class="actions"><button class="quiet" id="change" type="button">${s.change}</button><button class="primary" id="again" type="button">${s.again}</button></div></div>
+    <div class="rows">${game.round.map((q, i) => `<button type="button" data-i="${i}"><span>${esc(label(q.item))}<em>${esc(shortResult(q))}</em></span><b class="${band(q.points)}">${q.points}</b></button>`).join("")}</div>
+  </div>`);
+  document.getElementById("again").onclick = startRound;
+  document.getElementById("change").onclick = renderSetup;
+  dock.querySelectorAll(".rows button").forEach(b => b.onclick = () => {
+    dock.querySelectorAll(".rows button").forEach(o => o.classList.toggle("active", o === b));
+    const q = game.round[+b.dataset.i];
+    showReveal(q.item, q.guess, q.hit);
+  });
+  document.getElementById("again").focus({ preventScroll: true });
+}
+function renderSummary() {
+  game.phase = "summary";
+  game.index = game.round.length - 1;
+  game.drawDock = summaryDock;
+  summaryDock();
+  showRegion(settings.region);
+  clearMarks();
+}
+
+/* ---------- Language switch ---------- */
+function applyLanguage() {
+  const s = S();
+  document.documentElement.lang = lang;
+  document.getElementById("zoom-in").setAttribute("aria-label", s.zoomIn);
+  document.getElementById("zoom-out").setAttribute("aria-label", s.zoomOut);
+  const home = document.getElementById("zoom-home");
+  home.setAttribute("aria-label", s.home);
+  home.title = s.home;
+  document.getElementById("lang").setAttribute("aria-label", s.language);
+  document.getElementById("map").setAttribute("aria-label", s.map);
+  document.querySelectorAll("#lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+}
+document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
+  if (b.dataset.lang === lang) return;
+  lang = b.dataset.lang;
+  try { localStorage.setItem("blank-map-lang", lang); } catch (e) {}
+  applyLanguage();
+  game.drawDock();
+});
+
+window.blankMap = { ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg };
+applyLanguage();
+layout();
+renderSetup();
+window.addEventListener("resize", refit);
+</script>
