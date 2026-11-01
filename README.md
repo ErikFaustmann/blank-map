@@ -38,6 +38,8 @@ python -m http.server 8770 --directory .
 
 ## Change the content
 
+Facts about each place live in `facts.js`, which you can edit directly.
+
 Places live in `tools/content.py`, with German names in `tools/content_de.py`. `tools/build_data.py` joins them with the map data and writes `data.js`.
 
 Download these into an empty folder, then pass that folder to the script:
