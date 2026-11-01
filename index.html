@@ -62,8 +62,10 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #zoomctl { position: absolute; display: grid; gap: 6px;
   top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); }
 #zoomctl button { width: 38px; height: 38px; padding: 0; font: 600 20px/1 var(--body); }
-#topbar { position: absolute; display: flex; gap: 8px;
+#topbar { position: absolute; display: flex; flex-wrap: wrap; gap: 8px; max-width: calc(100% - 74px);
   top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); }
+#account { order: 3; height: 38px; max-width: 170px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#account[hidden] { display: none; }
 #lang { display: flex; }
 #music { order: 1; height: 38px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; }
 #music[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
@@ -153,6 +155,29 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 .flag-q { display: block; height: 84px; width: auto; margin-bottom: 8px; border: 1px solid var(--line); }
 .flag-small { height: 24px; width: auto; margin-right: 8px; vertical-align: -3px; border: 1px solid var(--line); }
 
+/* Login and profile */
+.account-form { display: grid; gap: 10px; max-width: 420px; }
+.account-form label { display: grid; gap: 4px; font-weight: 500; }
+.account-form input { padding: 9px 12px; font: 500 16px var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--ink); border-radius: 3px; }
+.account-error { margin: 0; color: var(--bad); font-weight: 500; }
+.account-error:empty { display: none; }
+.account-note { margin: 0; color: var(--muted); font-size: 13px; }
+.profile-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
+.profile-head h2 { font: 700 40px/1 var(--display); margin: 0; overflow-wrap: anywhere; }
+.profile-head h2 small { display: block; margin-top: 4px; font: 500 16px/1.2 var(--body); color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px 32px; }
+.stats h3, .log-head { margin: 0 0 6px; font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stat { display: grid; grid-template-columns: 110px minmax(40px, 1fr) 44px; gap: 10px; align-items: center; padding: 4px 0; }
+.stat-track { height: 8px; background: var(--panel-2); border-radius: 0 4px 4px 0; }
+.stat-track i { display: block; height: 100%; min-width: 2px; background: var(--pick); border-radius: 0 4px 4px 0; }
+.stat b { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.stat.unplayed { color: var(--muted); }
+.log { list-style: none; margin: 0; padding: 0; }
+.log li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.log b { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; }
+.save-note { flex-basis: 100%; font-size: 13px; }
+.unsaved { margin: 0; color: var(--bad); font-weight: 500; }
+
 /* Round summary */
 .summary-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
 .summary-head h2 { font: 700 40px/1 var(--display); margin: 0; font-variant-numeric: tabular-nums; }
@@ -189,6 +214,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
     </div>
+    <button id="account" type="button" hidden></button>
     </div>
     <div id="legend" hidden></div>
     <div id="zoomctl">
@@ -258,6 +284,15 @@ const STRINGS = {
     musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music", volumeLabel: "Music volume",
     factsHint: "Point at or tap the name for more facts.", legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
+    login: "Log in", register: "Create profile", logout: "Log out", back: "Back", profile: "Your profile",
+    loginIntro: "Log in to save your rounds and see how good you are in each category. You can also play without a profile.",
+    nameLabel: "Name", passwordLabel: "Password",
+    passwordNote: "Names need 2 to 24 characters, passwords at least 6. A forgotten password can't be recovered.",
+    errors: { name: "Names need 2 to 24 characters.", password: "Passwords need at least 6 characters.", taken: "That name is already taken.", wrong: "That name and password don't match.", limit: "Too many tries. Wait a few minutes.", network: "Couldn't reach the server. Try again." },
+    overall: "Overall accuracy: {score}%", noAnswers: "No answers yet. Play a round to get started.", statsKinds: "Categories", statsRegions: "Regions", statsRounds: "Recent rounds",
+    accuracyNote: "Accuracy uses only your last {n} answers in each category, and the newest count most. {n} perfect answers in a row always take a category to 100%.",
+    answerCount: "{n} answers", savedAs: "Logged in as {name}. Your results are saved.", notSaved: "Not logged in, so this round won't be saved.",
+    unsaved: "{n} answers couldn't be saved to your profile.", profileError: "Couldn't load your profile.",
   },
   de: {
     kinds: { country: "Länder", capital: "Hauptstädte", flag: "Flaggen", mountain: "Berge", river: "Flüsse" },
@@ -289,6 +324,15 @@ const STRINGS = {
     musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik", volumeLabel: "Musiklautstärke",
     factsHint: "Zeig auf den Namen oder tippe ihn an, um mehr Fakten zu sehen.", legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
+    login: "Anmelden", register: "Profil erstellen", logout: "Abmelden", back: "Zurück", profile: "Dein Profil",
+    loginIntro: "Melde dich an, um deine Runden zu speichern und zu sehen, wie gut du in jeder Kategorie bist. Du kannst auch ohne Profil spielen.",
+    nameLabel: "Name", passwordLabel: "Passwort",
+    passwordNote: "Namen brauchen 2 bis 24 Zeichen, Passwörter mindestens 6. Ein vergessenes Passwort lässt sich nicht wiederherstellen.",
+    errors: { name: "Namen brauchen 2 bis 24 Zeichen.", password: "Passwörter brauchen mindestens 6 Zeichen.", taken: "Dieser Name ist schon vergeben.", wrong: "Name und Passwort passen nicht zusammen.", limit: "Zu viele Versuche. Warte ein paar Minuten.", network: "Der Server ist nicht erreichbar. Versuch es noch einmal." },
+    overall: "Genauigkeit insgesamt: {score} %", noAnswers: "Noch keine Antworten. Spiel eine Runde, um loszulegen.", statsKinds: "Kategorien", statsRegions: "Regionen", statsRounds: "Letzte Runden",
+    accuracyNote: "Die Genauigkeit berücksichtigt nur deine letzten {n} Antworten pro Kategorie, die neuesten zählen am meisten. Mit {n} perfekten Antworten in Folge erreicht jede Kategorie 100 %.",
+    answerCount: "{n} Antworten", savedAs: "Angemeldet als {name}. Deine Ergebnisse werden gespeichert.", notSaved: "Nicht angemeldet, diese Runde wird nicht gespeichert.",
+    unsaved: "{n} Antworten konnten nicht in deinem Profil gespeichert werden.", profileError: "Dein Profil konnte nicht geladen werden.",
   },
 };
 function storedLanguage() {
@@ -698,7 +742,7 @@ const settings = { kinds: new Set(KINDS), type: "both", region: "World", level: 
 dock.addEventListener("click", e => { if (e.target.id === "quit") quitRound(); });
 
 function refit() { if (layout() && activeView) activeView(); }
-function setDock(html) { hideFacts(); dock.innerHTML = html; dock.scrollTop = 0; refit(); }
+function setDock(html) { hideFacts(); dock.innerHTML = html; dock.scrollTop = 0; drawAccountButton(); refit(); }
 function poolCount(kind, region, level) { return ITEMS.filter(i => inPool(i, kind, region, level)).length; }
 
 function setupDock() {
@@ -722,7 +766,7 @@ function setupDock() {
       <fieldset><legend>${s.legendWhere}</legend><div class="chips">
         ${Object.keys(REGIONS).map(r => `<label class="chip"><input type="radio" id="region-${r.replace(" ", "-")}" name="region" value="${r}" ${settings.region === r ? "checked" : ""}><span>${s.regions[r]}</span></label>`).join("")}
       </div></fieldset>
-      <div class="start"><button class="primary" id="start" type="submit">${s.start}</button><span id="start-note"></span></div>
+      <div class="start"><button class="primary" id="start" type="submit">${s.start}</button><span id="start-note"></span>${saveNote()}</div>
     </form></div>`);
   const form = document.getElementById("setup-form");
   const update = () => {
@@ -773,6 +817,8 @@ function startRound() {
   game.round = pickRound([...settings.kinds], settings.region, settings.type, settings.level);
   for (const q of game.round) if (q.item.flag) new Image().src = q.item.flag;
   game.index = 0; game.total = 0;
+  game.roundId = newRoundId();
+  game.unsaved = 0;
   resetGuessed();
   music.begin(settings.region);
   if (game.round.length) renderQuestion();
@@ -887,6 +933,7 @@ function feedbackDock() {
 function finishAnswer(q, points, result) {
   q.points = points; q.result = result;
   game.total += points;
+  saveAnswer(q);
   game.phase = "feedback";
   game.drawDock = feedbackDock;
   svg.classed("placing", false);
@@ -925,7 +972,8 @@ function summaryDock() {
   const s = S();
   const answered = game.round.filter(q => q.points != null);
   const max = answered.length * 100, pct = game.total / max;
-  const ended = answered.length < game.round.length ? `<p class="ended">${fill(s.ended, { n: answered.length, total: game.round.length })}</p>` : "";
+  const ended = (answered.length < game.round.length ? `<p class="ended">${fill(s.ended, { n: answered.length, total: game.round.length })}</p>` : "")
+    + (game.unsaved ? `<p class="unsaved">${fill(s.unsaved, { n: game.unsaved })}</p>` : "");
   const rank = s.ranks[pct >= .9 ? 3 : pct >= .7 ? 2 : pct >= .4 ? 1 : 0];
   setDock(`<div class="wrap">
     <div class="summary-head"><h2>${game.total} <small>/ ${max}</small><span class="rank">${rank}</span></h2>
@@ -1336,6 +1384,153 @@ const music = (() => {
   };
 })();
 
+/* ---------- Profiles ---------- */
+/* Profiles need server.py. Served as plain files there is no API, and the game simply has no login. */
+const account = { available: false, user: null, profile: null, error: "", view: "login", back: null };
+const accountButton = document.getElementById("account");
+async function api(path, body) {
+  const options = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true } : {};
+  const response = await fetch(`api/${path}`, options);
+  const data = await response.json();
+  return { ok: response.ok, status: response.status, data };
+}
+function drawAccountButton() {
+  const inRound = game.phase === "question" || game.phase === "feedback";
+  accountButton.hidden = !account.available || inRound;
+  accountButton.textContent = account.user ? account.user.name : S().login;
+}
+function saveNote() {
+  if (!account.available) return "";
+  return `<span class="save-note">${account.user ? fill(S().savedAs, { name: esc(account.user.name) }) : S().notSaved}</span>`;
+}
+function newRoundId() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
+}
+function saveAnswer(q) {
+  if (!account.user) return;
+  const missed = () => {
+    game.unsaved++;
+    if (game.phase === "summary") game.drawDock();
+  };
+  api("answers", { round: game.roundId, kind: q.item.kind, region: q.item.region, area: settings.region, level: settings.level, mode: q.mode, place: q.item.names.en, points: q.points })
+    .then(r => { if (!r.ok) missed(); }, missed);
+}
+function loginDock() {
+  const s = S();
+  const typed = { name: document.getElementById("login-name")?.value || "", password: document.getElementById("login-password")?.value || "" };
+  setDock(`<div class="wrap">
+    <div class="profile-head"><h2>${s.profile}</h2><div class="actions"><button class="quiet" id="account-back" type="button">${s.back}</button></div></div>
+    <p class="account-note">${s.loginIntro}</p>
+    <form class="account-form" id="login-form">
+      <label>${s.nameLabel}<input id="login-name" name="username" autocomplete="username" maxlength="24" autocapitalize="off" spellcheck="false" required></label>
+      <label>${s.passwordLabel}<input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="200" required></label>
+      <p class="account-error" role="alert">${account.error ? esc(s.errors[account.error] || s.errors.network) : ""}</p>
+      <div class="actions"><button class="primary" id="login-submit" type="submit">${s.login}</button><button class="quiet" id="register-submit" type="submit" value="register">${s.register}</button></div>
+      <p class="account-note">${s.passwordNote}</p>
+    </form></div>`);
+  document.getElementById("login-name").value = typed.name;
+  document.getElementById("login-password").value = typed.password;
+  document.getElementById("account-back").onclick = account.back;
+  document.getElementById("login-form").addEventListener("submit", e => {
+    e.preventDefault();
+    logIn(e.submitter && e.submitter.value === "register" ? "register" : "login");
+  });
+  document.getElementById(typed.name ? "login-password" : "login-name").focus({ preventScroll: true });
+}
+async function logIn(path) {
+  const name = document.getElementById("login-name").value, password = document.getElementById("login-password").value;
+  try {
+    const { ok, data } = await api(path, { name, password });
+    if (!ok) { account.error = data.error; return loginDock(); }
+    account.user = data.user;
+    account.error = "";
+    document.getElementById("login-password").value = "";
+    showProfile();
+  } catch (e) {
+    account.error = "network";
+    loginDock();
+  }
+}
+function statRow(text, stat) {
+  const s = S();
+  const played = stat.score != null;
+  return `<div class="stat ${played ? "" : "unplayed"}" title="${fill(s.answerCount, { n: num(stat.count) })}"><span>${esc(text)}</span>
+    <div class="stat-track">${played ? `<i style="width:${stat.score}%"></i>` : ""}</div><b>${played ? (lang === "de" ? `${stat.score} %` : `${stat.score}%`) : "–"}</b></div>`;
+}
+function profileDock() {
+  const s = S(), p = account.profile;
+  const head = `<div class="profile-head"><h2>${esc(account.user.name)}${p && p.overall.score != null ? `<small>${fill(s.overall, { score: p.overall.score })}</small>` : ""}</h2>
+    <div class="actions"><button class="quiet" id="logout" type="button">${s.logout}</button><button class="primary" id="account-back" type="button">${s.back}</button></div></div>`;
+  let body = "";
+  if (account.error) body = `<p class="account-error" role="alert">${s.profileError}</p>`;
+  else if (p && !p.overall.count) body = `<p class="account-note">${s.noAnswers}</p>`;
+  else if (p) {
+    /* Antarctica only has two mountains, so it stays out of the way until someone meets them. */
+    const regions = Object.entries(p.regions).filter(([r, st]) => r !== "Antarctica" || st.count);
+    const dateText = at => new Date(at * 1000).toLocaleDateString(lang, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    body = `<div class="stats">
+        <div><h3>${s.statsKinds}</h3>${KINDS.map(k => statRow(s.kinds[k], p.kinds[k])).join("")}</div>
+        <div><h3>${s.statsRegions}</h3>${regions.map(([r, st]) => statRow(s.regions[r], st)).join("")}</div>
+      </div>
+      <p class="account-note">${fill(s.accuracyNote, { n: p.window })}</p>
+      <div><div class="log-head">${s.statsRounds}</div><ol class="log">${p.rounds.map(r => `<li>
+        <span>${esc(dateText(r.at))} · ${s.regions[r.area]} · ${s.levels[r.level]} · ${r.kinds.map(k => s.kinds[k]).join(", ")}</span><b>${num(r.points)} / ${num(r.answered * 100)}</b></li>`).join("")}</ol></div>`;
+  }
+  setDock(`<div class="wrap">${head}${body}</div>`);
+  document.getElementById("account-back").onclick = account.back;
+  document.getElementById("logout").onclick = logOut;
+}
+async function showProfile() {
+  account.profile = null;
+  account.error = "";
+  game.drawDock = profileDock;
+  profileDock();
+  try {
+    const { ok, status, data } = await api("profile");
+    if (game.drawDock !== profileDock) return;
+    if (status === 401) { account.user = null; return openLogin(); }
+    if (ok) account.profile = data; else account.error = "network";
+  } catch (e) {
+    account.error = "network";
+  }
+  if (game.drawDock === profileDock) profileDock();
+}
+function openLogin() {
+  account.error = "";
+  game.drawDock = loginDock;
+  loginDock();
+}
+async function logOut() {
+  try {
+    await api("logout", {});
+    account.user = null;
+    account.profile = null;
+    account.back();
+  } catch (e) {
+    account.error = "network";
+    profileDock();
+  }
+}
+accountButton.onclick = () => {
+  /* Only reachable between rounds. Coming back to a finished round shows its summary again. */
+  if (game.phase !== "account") account.back = game.phase === "summary" ? renderSummary : renderSetup;
+  game.phase = "account";
+  music.end();
+  if (account.user) showProfile(); else openLogin();
+};
+async function loadAccount() {
+  try {
+    const { ok, data } = await api("me");
+    if (!ok) return;
+    account.available = true;
+    account.user = data.user;
+  } catch (e) {
+    return;
+  }
+  if (game.phase === "setup") game.drawDock();
+  else drawAccountButton();
+}
+
 /* ---------- Language switch ---------- */
 function applyLanguage() {
   const s = S();
@@ -1346,6 +1541,7 @@ function applyLanguage() {
   home.setAttribute("aria-label", s.home);
   home.title = s.home;
   document.getElementById("lang").setAttribute("aria-label", s.language);
+  drawAccountButton();
   music.drawButton();
   redrawGuessed();
   document.getElementById("map").setAttribute("aria-label", s.map);
@@ -1359,9 +1555,10 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks, factsFor };
+window.blankMap = { account, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks, factsFor };
 applyLanguage();
 layout();
 renderSetup();
+loadAccount();
 window.addEventListener("resize", refit);
 </script>

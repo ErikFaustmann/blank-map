@@ -7,7 +7,7 @@ A browser geography game. Name or find countries, capitals, mountains and rivers
 Install [Docker](https://www.docker.com/products/docker-desktop/), start it, then run:
 
 ```bash
-docker run -d --name blank-map -p 8770:80 ghcr.io/erikfaustmann/blank-map:latest
+docker run -d --name blank-map -p 8770:8770 -v blank-map-data:/data ghcr.io/erikfaustmann/blank-map:latest
 ```
 
 Then open http://localhost:8770. To stop and remove it:
@@ -15,6 +15,8 @@ Then open http://localhost:8770. To stop and remove it:
 ```bash
 docker rm -f blank-map
 ```
+
+Profiles stay in the `blank-map-data` volume when the container is removed.
 
 ## Run it from source
 
@@ -30,11 +32,23 @@ Then open http://localhost:8770. To stop it:
 docker compose down
 ```
 
-Without Docker, serve the folder with Python. The page loads `data.js`, so opening the file directly won't work:
+Without Docker, run the server with Python 3. It needs no other packages:
 
 ```bash
-python -m http.server 8770 --directory .
+python server.py
 ```
+
+Then open http://localhost:8770. Profiles are saved in `userdata/blank-map.sqlite`.
+
+The game also runs as plain static files, for example with `python -m http.server`, but without logins or profiles.
+
+## Profiles
+
+You can play without a profile. With one, every answer is saved in a SQLite database. Passwords are stored as scrypt hashes and can't be recovered if forgotten.
+
+Accuracy for each category uses the last 30 answers, with each answer counting 7% less than the one after it. Older answers no longer count, so 30 perfect answers in a row always give 100%.
+
+Everyone who runs their own copy has their own separate profiles. To share profiles, host one copy on a server behind HTTPS and set `BLANK_MAP_SECURE_COOKIE=1`. Plain HTTP sends passwords unencrypted, so only use it on your own computer.
 
 ## Change the content
 

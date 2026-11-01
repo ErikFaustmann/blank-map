@@ -2,5 +2,9 @@ services:
   blank-map:
     build: .
     ports:
-      - "8770:80"
+      - "8770:8770"
+    volumes:
+      - blank-map-data:/data
     restart: unless-stopped
+volumes:
+  blank-map-data:
