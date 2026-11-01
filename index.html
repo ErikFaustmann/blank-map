@@ -11,7 +11,7 @@
   --sea: #cfe4ee; --land: #f1e4b8; --coast: #7d8a7c; --border: #a59a78; --grid: #a9c6d4;
   --panel: #f7fafa; --panel-2: #e8f0f2; --ink: #12303e; --muted: #4d6673; --line: #bfd0d6;
   --mark: #b0117a; --mark-ink: #ffffff; --pin: #12303e; --pick: #1769aa;
-  --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e;
+  --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e; --river: #4a94c2; --peak: #8c6a3f;
   --display: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;
@@ -20,13 +20,13 @@
   --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
-  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; color-scheme: dark;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
-  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; color-scheme: dark;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
 }
 html, body { height: 100%; margin: 0; }
 body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); overflow: hidden; }
@@ -42,14 +42,16 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 .graticule { fill: none; stroke: var(--grid); stroke-width: .6; }
 .land { fill: var(--land); stroke: var(--coast); stroke-width: .6; }
 .borders { fill: none; stroke: var(--border); stroke-width: .6; stroke-linejoin: round; }
+#map .relief-rivers { fill: none; stroke: var(--river); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#map .relief-peak { fill: var(--peak); stroke: var(--land); stroke-width: .5; pointer-events: none; }
 #map .hl-area { fill: var(--mark); fill-opacity: .62; stroke: var(--mark); stroke-width: 1.4; }
 #map .hl-river { fill: none; stroke: var(--mark); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 #map .hl-river-halo { fill: none; stroke: var(--panel); stroke-width: 6; stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
 #map .hl-right { fill: var(--good); fill-opacity: .7; stroke: var(--good); stroke-width: 1.4; }
 #map .hl-chosen { fill: var(--bad); fill-opacity: .6; stroke: var(--bad); stroke-width: 1.4; }
 #map .sel-hover { fill: var(--pick); fill-opacity: .25; stroke: var(--pick); stroke-width: 1; pointer-events: none; }
-#map .sel-pick { fill: var(--pick); fill-opacity: .7; stroke: var(--pick); stroke-width: 1.6; pointer-events: none; }
 #map .gap { fill: none; stroke: var(--pin); stroke-width: 1.6; stroke-dasharray: 5 5; }
+#sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .m-dot { fill: var(--mark); stroke: var(--panel); stroke-width: 2; }
 .m-ring { fill: none; stroke: var(--mark); stroke-width: 2.5; }
 .m-peak { fill: var(--mark); stroke: var(--panel); stroke-width: 2; stroke-linejoin: round; }
@@ -163,6 +165,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <div id="app">
   <div id="stage">
     <svg id="map" role="application" aria-label="World map"></svg>
+    <canvas id="sparks" aria-hidden="true"></canvas>
     <div id="topbar">
     <button id="music" type="button"></button>
     <div id="lang" role="group">
@@ -214,7 +217,7 @@ const STRINGS = {
     startNote: "{n} questions, up to 100 points each", startEmpty: "Choose something to ask about in this region.",
     question: "Question {i} of {n}", points: "pts", find: "Find {name}",
     hintPin: "Click the map to place your pin. Scroll or pinch to zoom.",
-    hintCountry: "Click a country to colour it in. Scroll or pinch to zoom.",
+    hintCountry: "Your click on a country is your answer. Scroll or pinch to zoom.",
     hintSpelling: "Small spelling mistakes are fine.", placeholder: "Type the name", answerLabel: "Your answer",
     skip: "Skip", confirm: "Confirm", answer: "Answer", next: "Next question", results: "See results",
     again: "Play again", change: "Change settings",
@@ -243,7 +246,7 @@ const STRINGS = {
     startNote: "{n} Fragen, jeweils bis zu 100 Punkte", startEmpty: "Wähle etwas aus, das es in dieser Region gibt.",
     question: "Frage {i} von {n}", points: "Pkt.", find: "Finde {name}",
     hintPin: "Klicke auf die Karte, um deine Nadel zu setzen. Scrolle oder ziehe mit zwei Fingern zum Zoomen.",
-    hintCountry: "Klicke auf ein Land, um es einzufärben. Scrolle oder ziehe mit zwei Fingern zum Zoomen.",
+    hintCountry: "Dein Klick auf ein Land ist deine Antwort. Scrolle oder ziehe mit zwei Fingern zum Zoomen.",
     hintSpelling: "Kleine Tippfehler sind kein Problem.", placeholder: "Name eingeben", answerLabel: "Deine Antwort",
     skip: "Überspringen", confirm: "Bestätigen", answer: "Antworten", next: "Nächste Frage", results: "Zum Ergebnis",
     again: "Nochmal spielen", change: "Einstellungen ändern",
@@ -414,16 +417,20 @@ const base = {
   borders: zoomLayer.append("path").attr("class", "borders"),
 };
 const guessedLayer = zoomLayer.append("g");
+const reliefRivers = zoomLayer.append("path").attr("class", "relief-rivers");
+const reliefPeaks = zoomLayer.append("g");
 const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
-const pickPath = zoomLayer.append("path").attr("class", "sel-pick");
 const overlay = zoomLayer.append("g");
 const markers = zoomLayer.append("g");
 let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null;
 
-const zoom = d3.zoom().scaleExtent([1, 80]).on("zoom", e => {
+const sizedToScreen = d => `translate(${d.x},${d.y}) scale(${1 / currentK})`;
+/* A click now answers at once, so a hand that shifts by a pixel or two must still count as a click. */
+const zoom = d3.zoom().scaleExtent([1, 80]).clickDistance(4).on("zoom", e => {
   zoomLayer.attr("transform", e.transform);
   currentK = e.transform.k;
-  markers.selectAll("g").attr("transform", d => `translate(${d.x},${d.y}) scale(${1 / currentK})`);
+  markers.selectAll("g").attr("transform", sizedToScreen);
+  reliefPeaks.selectAll("path").attr("transform", sizedToScreen);
 });
 svg.call(zoom).on("dblclick.zoom", null);
 
@@ -432,8 +439,18 @@ function drawBase() {
   base.graticule.attr("d", geoPath(graticule));
   base.land.attr("d", geoPath({ type: "FeatureCollection", features: allFeatures }));
   base.borders.attr("d", geoPath(borders));
+  drawRelief();
   redrawGuessed();
   redrawPicks();
+}
+/* The big rivers and peaks stay faintly visible as landmarks, whatever the round is asking about. */
+function drawRelief() {
+  reliefRivers.attr("d", geoPath({ type: "GeometryCollection", geometries: ITEMS.filter(i => i.kind === "river").map(i => i.geo) }));
+  const peaks = ITEMS.filter(i => i.kind === "mountain").map(i => {
+    const [x, y] = projection(i.geo.coordinates);
+    return { x, y };
+  });
+  reliefPeaks.selectAll("path").data(peaks).join("path").attr("class", "relief-peak").attr("d", "M0,-4.5L4.5,3L-4.5,3Z").attr("transform", sizedToScreen);
 }
 /* Countries already played this round keep their colour, with a legend once there is something to explain. */
 function redrawGuessed() {
@@ -446,9 +463,7 @@ function redrawGuessed() {
     .filter(([cls]) => used.has(cls)).map(([cls, text]) => `<span><i class="${cls}"></i>${text}</span>`).join("");
 }
 function redrawPicks() {
-  const hit = game.pick && game.pick.hit;
-  pickPath.attr("d", hit ? geoPath(hit.geo) : null);
-  hoverPath.attr("d", game.hover && game.hover !== hit ? geoPath(game.hover.geo) : null);
+  hoverPath.attr("d", game.hover ? geoPath(game.hover.geo) : null);
 }
 function layout() {
   const box = document.getElementById("stage").getBoundingClientRect();
@@ -686,10 +701,10 @@ function questionDock() {
     const hint = q.item.kind === "country" ? s.hintCountry : s.hintPin;
     setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
       <div><h2>${fill(s.find, { name: `<span class="target">${esc(label(q.item))}</span>` })}</h2><p>${s.one[q.item.kind]}. ${hint}</p></div>
-      <div class="actions"><button class="quiet" id="skip" type="button">${s.skip}</button><button class="primary" id="confirm" type="button" ${game.pick ? "" : "disabled"}>${s.confirm}</button></div>
+      <div class="actions"><button class="quiet" id="skip" type="button">${s.skip}</button>${q.item.kind === "country" ? "" : `<button class="primary" id="confirm" type="button" ${game.pick ? "" : "disabled"}>${s.confirm}</button>`}</div>
     </div></div>`);
     document.getElementById("skip").onclick = () => answerFind(null);
-    document.getElementById("confirm").onclick = () => answerFind(game.pick);
+    if (q.item.kind !== "country") document.getElementById("confirm").onclick = () => answerFind(game.pick);
   } else {
     const typed = document.getElementById("answer")?.value || "";
     setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
@@ -729,12 +744,16 @@ svg.on("click", e => {
   if (game.phase !== "question" || game.round[game.index].mode !== "find") return;
   const ll = eventLonLat(e);
   if (!ll) return;
-  const hit = game.round[game.index].item.kind === "country" ? hitAt(ll) : null;
-  game.pick = { ll, hit };
-  game.hover = null;
+  const { item } = game.round[game.index];
+  if (item.kind === "country") {
+    /* A country answers at once. The sea only counts when looking for a tiny country, which may be too small to hit. */
+    const hit = hitAt(ll);
+    if (hit || item.size < 100) answerFind({ ll, hit });
+    return;
+  }
+  game.pick = { ll, hit: null };
   markers.selectAll("*").remove();
-  if (!hit) addMarker(ll, drawPin);
-  redrawPicks();
+  addMarker(ll, drawPin);
   const confirm = document.getElementById("confirm");
   confirm.disabled = false;
   confirm.focus({ preventScroll: true });
@@ -780,6 +799,7 @@ function finishAnswer(q, points, result) {
   game.drawDock = feedbackDock;
   svg.classed("placing", false);
   feedbackDock();
+  if (points === 100) fireworks();
 }
 /* A coloured-in neighbour is a wrong country, so it earns less than a hit. Tiny countries stay forgiving,
    because at world zoom the click almost always lands on the country around them. */
@@ -844,69 +864,196 @@ function renderSummary() {
   clearMarks();
 }
 
+/* ---------- Fireworks ---------- */
+/* Rockets rise from the bottom of the map and burst around the answer, which the reveal view centres. */
+const fireworks = (() => {
+  const canvas = document.getElementById("sparks"), pen = canvas.getContext("2d");
+  const SHELLS = [[.5, .42, .2], [.28, .3, .55], [.72, .34, .85], [.5, .2, 1.2]];
+  const RISE = .5, GRAVITY = 170, DRAG = 1.9;
+  let rockets = [], sparks = [], frame = null, last = 0, width = 0, height = 0;
+  function burst(r) {
+    const speed = 150 * clamp(Math.min(width, height) / 450, .6, 1.5);
+    for (let i = 0; i < 56; i++) {
+      const angle = Math.random() * Math.PI * 2, v = speed * (.35 + Math.random() * .65);
+      const life = .9 + Math.random() * .6;
+      sparks.push({ x: r.x, y: r.y, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v, age: 0, life, color: r.color });
+    }
+  }
+  function draw(now) {
+    const dt = Math.min((now - last) / 1000, .05);
+    last = now;
+    pen.clearRect(0, 0, width, height);
+    pen.lineCap = "round";
+    rockets = rockets.filter(r => {
+      r.wait -= dt;
+      if (r.wait > 0) return true;
+      const t = Math.min(-r.wait / RISE, 1), rise = 1 - Math.pow(1 - t, 2);
+      const y = height + (r.y - height) * rise;
+      pen.globalAlpha = 1;
+      pen.strokeStyle = r.color;
+      pen.lineWidth = 2.5;
+      pen.beginPath();
+      pen.moveTo(r.x, y);
+      pen.lineTo(r.x, y + 14);
+      pen.stroke();
+      if (t < 1) return true;
+      burst(r);
+      return false;
+    });
+    pen.lineWidth = 2.2;
+    sparks = sparks.filter(p => {
+      p.age += dt;
+      if (p.age >= p.life) return false;
+      const x = p.x, y = p.y, slow = Math.exp(-DRAG * dt);
+      p.vx *= slow;
+      p.vy = p.vy * slow + GRAVITY * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      pen.globalAlpha = 1 - Math.pow(p.age / p.life, 2);
+      pen.strokeStyle = p.color;
+      pen.beginPath();
+      pen.moveTo(x - p.vx * .03, y - p.vy * .03);
+      pen.lineTo(p.x, p.y);
+      pen.stroke();
+      return true;
+    });
+    pen.globalAlpha = 1;
+    frame = rockets.length || sparks.length ? requestAnimationFrame(draw) : null;
+    if (!frame) pen.clearRect(0, 0, width, height);
+  }
+  return () => {
+    if (reduceMotion) return;
+    const box = canvas.getBoundingClientRect(), ratio = window.devicePixelRatio || 1;
+    width = box.width; height = box.height;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    pen.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const style = getComputedStyle(document.documentElement);
+    const colors = d3.shuffle(["--mark", "--pick", "--good", "--ok"].map(name => style.getPropertyValue(name).trim()));
+    rockets = SHELLS.map(([x, y, wait], i) => ({ x: x * width, y: y * height, wait, color: colors[i] }));
+    sparks = [];
+    if (!frame) { last = performance.now(); frame = requestAnimationFrame(draw); }
+  };
+})();
+
 /* ---------- Music ---------- */
-/* An original looping tune, synthesised live so the page ships no audio files. */
+/* An original looping score in D minor, synthesised live so the page ships no audio files. */
 const music = (() => {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  const VOLUME = .85;
-  const STEP = 60 / 116 / 2; /* one eighth note at 116 bpm */
-  /* Eight bars of eighths: bass root, then the three notes of the chord. Bar seven splits Dm and G. */
-  const C = [36, 60, 64, 67], AM = [33, 60, 64, 69], F = [29, 60, 65, 69], G = [31, 59, 62, 67], DM = [38, 62, 65, 69];
-  const BARS = [C, AM, F, G, C, AM, DM, C];
-  const MELODY = [
-    72, 0, 76, 0, 79, 0, 76, 0,   72, 0, 76, 0, 81, 79, 76, 0,
-    77, 0, 81, 0, 84, 0, 81, 79,  79, 0, 74, 0, 71, 74, 79, 0,
-    84, 0, 79, 0, 76, 79, 84, 0,  81, 0, 76, 0, 72, 76, 81, 0,
-    77, 74, 81, 0, 79, 74, 71, 74, 72, 0, 0, 0, 67, 71, 72, 0,
+  const VOLUME = .8;
+  const STEP = 60 / 76 / 2; /* one eighth note at 76 bpm */
+  /* Each chord: the bass note, then the three notes the strings hold for the bar. */
+  const DM = [38, 62, 65, 69], BB = [34, 62, 65, 70], F = [41, 60, 65, 69], C = [36, 60, 64, 67], GM = [43, 62, 67, 70], A = [33, 61, 64, 69];
+  const BARS = [DM, BB, F, C, DM, BB, GM, A];
+  const OSTINATO = [0, 0, 12, 0, 7, 0, 12, 7];
+  /* The horn theme as [note, length in eighths], eight bars of eight. */
+  const THEME = [
+    [62, 3], [69, 1], [69, 4],   [70, 3], [69, 1], [65, 4],
+    [65, 3], [69, 1], [72, 4],   [72, 3], [70, 1], [67, 4],
+    [69, 3], [74, 1], [74, 4],   [77, 3], [74, 1], [70, 4],
+    [70, 3], [72, 1], [74, 2], [70, 2],   [69, 4], [73, 2], [69, 2],
   ];
-  const noiseBuffers = new WeakMap();
-  function tone(ctx, dest, midi, time, type, length, volume) {
+  const MELODY = [];
+  THEME.reduce((at, [midi, length]) => { MELODY[at] = { midi, length }; return at + length; }, 0);
+
+  /* Strings and horns go through their own filter into a shared hall reverb. */
+  function buildMix(ctx, output) {
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -14;
+    limiter.ratio.value = 6;
+    limiter.connect(output);
+    const hall = ctx.createConvolver();
+    const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 2.6), ctx.sampleRate);
+    for (const channel of [0, 1]) impulse.getChannelData(channel).forEach((_, i, data) => {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+    });
+    hall.buffer = impulse;
+    const wet = ctx.createGain();
+    wet.gain.value = .3;
+    hall.connect(wet).connect(limiter);
+    const bus = cutoff => {
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = cutoff;
+      filter.connect(limiter);
+      filter.connect(hall);
+      return filter;
+    };
+    const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2), ctx.sampleRate);
+    noise.getChannelData(0).forEach((_, i, data) => { data[i] = Math.random() * 2 - 1; });
+    return { ctx, strings: bus(1100), horns: bus(1900), drums: bus(7000), noise };
+  }
+  function note(ctx, dest, midi, time, type, attack, length, volume, detune = 0) {
     const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.type = type;
     osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+    osc.detune.value = detune;
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(volume, time + .008);
+    gain.gain.linearRampToValueAtTime(volume, time + attack);
+    gain.gain.linearRampToValueAtTime(volume * .75, time + length * .75);
     gain.gain.exponentialRampToValueAtTime(.0005, time + length);
     osc.connect(gain).connect(dest);
     osc.start(time);
     osc.stop(time + length + .02);
   }
-  function hat(ctx, dest, time, volume) {
-    if (!noiseBuffers.has(ctx)) {
-      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .05), ctx.sampleRate);
-      buffer.getChannelData(0).forEach((_, i, data) => { data[i] = Math.random() * 2 - 1; });
-      noiseBuffers.set(ctx, buffer);
-    }
+  function noiseHit(mix, time, filterType, cutoff, length, volume) {
+    const { ctx } = mix;
     const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
-    source.buffer = noiseBuffers.get(ctx);
-    filter.type = "highpass";
-    filter.frequency.value = 7000;
+    source.buffer = mix.noise;
+    filter.type = filterType;
+    filter.frequency.value = cutoff;
     gain.gain.setValueAtTime(volume, time);
-    gain.gain.exponentialRampToValueAtTime(.0005, time + .045);
-    source.connect(filter).connect(gain).connect(dest);
+    gain.gain.exponentialRampToValueAtTime(.0005, time + length);
+    source.connect(filter).connect(gain).connect(mix.drums);
     source.start(time);
+    source.stop(time + length + .02);
   }
-  /* The melody plays on every other pass of the eight bars, with a quieter arpeggio in between. */
-  function playStep(ctx, dest, n, time) {
-    const s = n % 64, pass = Math.floor(n / 64), inBar = s % 8, bar = Math.floor(s / 8);
-    const chord = bar === 6 && inBar >= 4 ? G : BARS[bar];
-    if (inBar === 0 || inBar === 4) tone(ctx, dest, chord[0] + 12, time, "triangle", STEP * 1.8, .24);
-    if (inBar === 3 || inBar === 7) tone(ctx, dest, chord[0] + 19, time, "triangle", STEP * .9, .14);
-    if (s % 2 === 1) {
-      for (const midi of chord.slice(1)) tone(ctx, dest, midi, time, "sine", STEP * .8, .045);
-      hat(ctx, dest, time, .03);
+  function timpani(mix, time, volume) {
+    const { ctx } = mix;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(110, time);
+    osc.frequency.exponentialRampToValueAtTime(58, time + .16);
+    gain.gain.setValueAtTime(volume, time);
+    gain.gain.exponentialRampToValueAtTime(.0005, time + .95);
+    osc.connect(gain).connect(mix.drums);
+    osc.start(time);
+    osc.stop(time + 1);
+    noiseHit(mix, time, "lowpass", 500, .12, volume * .45);
+  }
+  /* Three passes of the eight bars: strings and drums, then the horns enter, then the horns double at the octave. */
+  function playStep(mix, n, time) {
+    const { ctx } = mix;
+    const s = n % 64, pass = Math.floor(n / 64) % 3, inBar = s % 8, bar = Math.floor(s / 8);
+    const chord = BARS[bar], full = pass > 0;
+    if (inBar === 0) {
+      for (const midi of chord.slice(1)) {
+        note(ctx, mix.strings, midi, time, "sawtooth", .5, STEP * 8.4, .04, -7);
+        note(ctx, mix.strings, midi, time, "sawtooth", .5, STEP * 8.4, .04, 7);
+      }
+      note(ctx, mix.strings, chord[0], time, "sawtooth", .15, STEP * 8, .14);
+      if (full && s === 0) noiseHit(mix, time, "highpass", 3500, 1.9, .1);
     }
-    if (pass % 2 === 0) {
-      if (MELODY[s]) tone(ctx, dest, MELODY[s], time, "triangle", STEP * 1.5, .14);
-    } else {
-      tone(ctx, dest, chord[1 + inBar % 3] + 12, time, "sine", STEP * .9, .05);
+    note(ctx, mix.strings, chord[0] + 12 + OSTINATO[inBar], time, "sawtooth", .008, STEP * .8, full ? .085 : .055);
+    if (inBar === 0 || inBar === 4) timpani(mix, time, full ? .55 : .36);
+    if (full && inBar === 3) timpani(mix, time, .3);
+    if (full && bar % 4 === 3 && inBar >= 6) {
+      timpani(mix, time, .3);
+      timpani(mix, time + STEP / 2, .36);
+    }
+    const line = full && MELODY[s];
+    if (line) {
+      const length = STEP * line.length * .96;
+      note(ctx, mix.horns, line.midi, time, "sawtooth", .06, length, .085, -5);
+      note(ctx, mix.horns, line.midi, time, "sawtooth", .06, length, .085, 5);
+      if (pass === 2) note(ctx, mix.horns, line.midi + 12, time, "sawtooth", .06, length, .055);
     }
   }
-  let on = true, wanted = false, ctx = null, master = null, timer = null, step = 0, nextTime = 0;
+  let on = true, wanted = false, ctx = null, master = null, mix = null, timer = null, step = 0, nextTime = 0;
   try { on = localStorage.getItem("blank-map-music") !== "off"; } catch (e) {}
   function tick() {
     while (nextTime < ctx.currentTime + .3) {
-      playStep(ctx, master, step++, nextTime);
+      playStep(mix, step++, nextTime);
       nextTime += STEP;
     }
   }
@@ -917,6 +1064,7 @@ const music = (() => {
       master = ctx.createGain();
       master.gain.value = 0;
       master.connect(ctx.destination);
+      mix = buildMix(ctx, master);
     }
     ctx.resume();
     master.gain.setTargetAtTime(VOLUME, ctx.currentTime, .15);
@@ -954,7 +1102,7 @@ const music = (() => {
   });
   return {
     begin() { wanted = true; if (on) play(); },
-    drawButton, playStep,
+    drawButton, buildMix, playStep, stepLength: STEP,
     get playing() { return !!timer && !!ctx && ctx.state === "running"; },
   };
 })();
@@ -982,7 +1130,7 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music };
+window.blankMap = { ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks };
 applyLanguage();
 layout();
 renderSetup();
