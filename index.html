@@ -674,6 +674,7 @@ function markGuess(q, points, hit) {
 }
 function renderSetup() {
   resetGuessed();
+  music.end();
   game.phase = "setup";
   game.drawDock = setupDock;
   svg.classed("placing", false);
@@ -856,6 +857,7 @@ function quitRound() {
   else renderSetup();
 }
 function renderSummary() {
+  music.end();
   game.phase = "summary";
   game.index = game.round.length - 1;
   game.drawDock = summaryDock;
@@ -1102,6 +1104,7 @@ const music = (() => {
   });
   return {
     begin() { wanted = true; if (on) play(); },
+    end() { wanted = false; pause(); },
     drawButton, buildMix, playStep, stepLength: STEP,
     get playing() { return !!timer && !!ctx && ctx.state === "running"; },
   };
