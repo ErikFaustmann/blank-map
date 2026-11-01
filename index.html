@@ -60,8 +60,20 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #zoomctl { position: absolute; display: grid; gap: 6px;
   top: calc(12px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); }
 #zoomctl button { width: 38px; height: 38px; padding: 0; font: 600 20px/1 var(--body); }
-#lang { position: absolute; display: flex;
+#topbar { position: absolute; display: flex; gap: 8px;
   top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); }
+#lang { display: flex; }
+#music { order: 1; height: 38px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; }
+#music[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
+#legend { position: absolute; bottom: 8px; right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; gap: 3px 10px;
+  padding: 4px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; font-size: 12px; pointer-events: none; }
+#legend[hidden] { display: none; }
+#legend span { display: flex; align-items: center; gap: 5px; }
+#legend i { width: 10px; height: 10px; }
+#legend .hl-right { background: var(--good); } #legend .hl-chosen { background: var(--bad); } #legend .hl-area { background: var(--mark); }
+.status-end { display: flex; align-items: center; gap: 12px; }
+#quit { padding: 4px 10px; font-size: 13px; }
+.ended { margin: 0; color: var(--muted); }
 #lang button { min-width: 42px; height: 38px; padding: 0 10px; font: 600 15px/1 var(--display); letter-spacing: .06em; }
 #lang button:first-child { border-radius: 3px 0 0 3px; }
 #lang button:last-child { border-radius: 0 3px 3px 0; margin-left: -1px; }
@@ -151,10 +163,14 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <div id="app">
   <div id="stage">
     <svg id="map" role="application" aria-label="World map"></svg>
+    <div id="topbar">
+    <button id="music" type="button"></button>
     <div id="lang" role="group">
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
     </div>
+    </div>
+    <div id="legend" hidden></div>
     <div id="zoomctl">
       <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
       <button id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
@@ -210,6 +226,9 @@ const STRINGS = {
     factCapital: "Capital: {name}.", capitalOf: "Capital of {name}.", about: "About {area}.",
     million: "million km²", river: "About {km} km long, flowing into {mouth}.",
     ranks: ["Uncharted waters", "Coastal pilot", "Ocean navigator", "Master cartographer"],
+    quit: "Quit", ended: "Round ended after {n} of {total} questions.",
+    musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music",
+    legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
   },
   de: {
@@ -236,6 +255,9 @@ const STRINGS = {
     factCapital: "Hauptstadt: {name}.", capitalOf: "Hauptstadt von {name}.", about: "Rund {area}.",
     million: "Mio. km²", river: "Rund {km} km lang, mündet in {mouth}.",
     ranks: ["Unbekannte Gewässer", "Küstengewässer", "Hochseetauglich", "Meisterhafte Kartografie"],
+    quit: "Beenden", ended: "Runde nach {n} von {total} Fragen beendet.",
+    musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik",
+    legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
   },
 };
@@ -373,6 +395,7 @@ function pickRound(kinds, region, type) {
 }
 
 /* ---------- Map ---------- */
+const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null, guessed: new Map(), hiddenGuess: null };
 const svg = d3.select("#map");
 const zoomLayer = svg.append("g");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -390,6 +413,7 @@ const base = {
   land: zoomLayer.append("path").attr("class", "land"),
   borders: zoomLayer.append("path").attr("class", "borders"),
 };
+const guessedLayer = zoomLayer.append("g");
 const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
 const pickPath = zoomLayer.append("path").attr("class", "sel-pick");
 const overlay = zoomLayer.append("g");
@@ -408,7 +432,18 @@ function drawBase() {
   base.graticule.attr("d", geoPath(graticule));
   base.land.attr("d", geoPath({ type: "FeatureCollection", features: allFeatures }));
   base.borders.attr("d", geoPath(borders));
+  redrawGuessed();
   redrawPicks();
+}
+/* Countries already played this round keep their colour, with a legend once there is something to explain. */
+function redrawGuessed() {
+  const shown = [...game.guessed].filter(([geo]) => geo !== game.hiddenGuess);
+  guessedLayer.selectAll("path").data(shown).join("path").attr("class", d => d[1]).attr("d", d => geoPath(d[0]));
+  const legend = document.getElementById("legend");
+  const used = new Set(game.guessed.values());
+  legend.hidden = !used.size;
+  legend.innerHTML = [["hl-right", S().legendRight], ["hl-chosen", S().legendChosen], ["hl-area", S().legendMissed]]
+    .filter(([cls]) => used.has(cls)).map(([cls, text]) => `<span><i class="${cls}"></i>${text}</span>`).join("");
 }
 function redrawPicks() {
   const hit = game.pick && game.pick.hit;
@@ -486,12 +521,12 @@ function drawPin(g) {
   g.append("circle").attr("class", "m-pin").attr("r", 9);
   g.append("circle").attr("class", "m-pin-c").attr("r", 2.5);
 }
-function highlight(item, targetK, right = false) {
+function highlight(item, targetK) {
   if (item.kind === "river") {
     overlay.append("path").attr("class", "hl-river-halo").attr("d", geoPath(item.geo));
     overlay.append("path").attr("class", "hl-river").attr("d", geoPath(item.geo));
   } else if (item.kind === "country") {
-    overlay.append("path").attr("class", right ? "hl-right" : "hl-area").attr("d", geoPath(item.geo));
+    if (game.hiddenGuess === item.geo || !game.guessed.has(item.geo)) overlay.append("path").attr("class", "hl-area").attr("d", geoPath(item.geo));
     if (Math.sqrt(geoPath.area(item.geo)) * targetK < 16) addMarker(d3.geoCentroid(item.geo), drawRing);
   } else {
     addMarker(item.geo.coordinates, item.kind === "mountain" ? drawPeak : drawDot);
@@ -504,6 +539,8 @@ function showQuestion(item) {
   const opts = { pad: .22, maxK: 40 };
   const bounds = focusBounds(item, item.kind === "river" ? 14 : item.kind === "country" ? 14 : 34);
   activeView = () => showQuestion(item);
+  game.hiddenGuess = item.geo;
+  redrawGuessed();
   highlight(item, kForBounds(bounds, opts.pad, opts.maxK));
   applyView(bounds, opts);
 }
@@ -514,8 +551,8 @@ function kForBounds([[x0, y0], [x1, y1]], pad, maxK) {
 function showReveal(item, guess, hit) {
   clearMarks();
   activeView = () => showReveal(item, guess, hit);
-  const right = !!hit && hit.item === item;
-  if (hit && !right) overlay.append("path").attr("class", "hl-chosen").attr("d", geoPath(hit.geo));
+  game.hiddenGuess = null;
+  redrawGuessed();
   let bounds = focusBounds(item, 16);
   if (guess) {
     const p = projection(guess);
@@ -523,7 +560,7 @@ function showReveal(item, guess, hit) {
     const { at } = nearest(item, guess);
     if (at) overlay.append("path").attr("class", "gap").attr("d", geoPath({ type: "LineString", coordinates: [guess, at] }));
   }
-  highlight(item, kForBounds(bounds, .18, 40), right);
+  highlight(item, kForBounds(bounds, .18, 40));
   if (guess && !hit) addMarker(guess, drawPin);
   applyView(bounds, { pad: .18, maxK: 40 });
 }
@@ -562,7 +599,7 @@ document.getElementById("zoom-home").onclick = () => activeView && activeView();
 /* ---------- Game ---------- */
 const dock = document.getElementById("dock");
 const settings = { kinds: new Set(KINDS), type: "both", region: "World" };
-const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null };
+dock.addEventListener("click", e => { if (e.target.id === "quit") quitRound(); });
 
 function refit() { if (layout() && activeView) activeView(); }
 function setDock(html) { dock.innerHTML = html; dock.scrollTop = 0; refit(); }
@@ -607,7 +644,21 @@ function setupDock() {
   form.addEventListener("submit", e => { e.preventDefault(); startRound(); });
   update();
 }
+function resetGuessed() {
+  game.guessed.clear();
+  game.hiddenGuess = null;
+  redrawGuessed();
+}
+/* Records a country question on the map. The latest result wins if a country comes up twice. */
+function markGuess(q, points, hit) {
+  if (q.item.kind !== "country") return;
+  const set = (geo, cls) => { game.guessed.delete(geo); game.guessed.set(geo, cls); };
+  if (points === 100) return set(q.item.geo, "hl-right");
+  if (hit && hit.item !== q.item) set(hit.geo, "hl-chosen");
+  set(q.item.geo, "hl-area");
+}
 function renderSetup() {
+  resetGuessed();
   game.phase = "setup";
   game.drawDock = setupDock;
   svg.classed("placing", false);
@@ -618,13 +669,15 @@ function renderSetup() {
 function startRound() {
   game.round = pickRound([...settings.kinds], settings.region, settings.type);
   game.index = 0; game.total = 0;
+  resetGuessed();
+  music.begin();
   if (game.round.length) renderQuestion();
 }
 function statusBar(q) {
   const s = S();
   const tiles = game.round.map((r, i) => `<li class="${r.points != null ? band(r.points) : i === game.index ? "now" : ""}"></li>`).join("");
   return `<div class="status"><span class="eyebrow">${fill(s.question, { i: game.index + 1, n: game.round.length })} · ${s.types[q.mode]}</span>
-    <ol class="tally" aria-hidden="true">${tiles}</ol><span class="total">${game.total} ${s.points}</span></div>`;
+    <ol class="tally" aria-hidden="true">${tiles}</ol><span class="status-end"><span class="total">${game.total} ${s.points}</span><button class="quiet" id="quit" type="button">${s.quit}</button></span></div>`;
 }
 function questionDock() {
   const s = S();
@@ -739,10 +792,11 @@ function answerFind(pick) {
   const q = game.round[game.index];
   q.guess = pick ? pick.ll : null;
   q.hit = pick ? pick.hit : null;
-  if (!pick) { showReveal(q.item, null, null); return finishAnswer(q, 0, { type: "skipped" }); }
+  if (!pick) { markGuess(q, 0, null); showReveal(q.item, null, null); return finishAnswer(q, 0, { type: "skipped" }); }
   const { km } = nearest(q.item, pick.ll);
   const isCountry = q.item.kind === "country";
   const points = isCountry ? pointsForPick(q.item, km, pick.hit) : pointsFor(q.item, km);
+  markGuess(q, points, pick.hit);
   showReveal(q.item, pick.ll, pick.hit);
   const type = km === 0 ? "right" : pick.hit ? "chose" : km <= q.item.full ? "near" : "far";
   finishAnswer(q, points, { type, km, hit: pick.hit });
@@ -750,28 +804,36 @@ function answerFind(pick) {
 function answerName(typed) {
   const q = game.round[game.index];
   q.guess = null; q.hit = null;
+  const result = typed ? matchAnswer(q.item, typed) : "wrong";
+  markGuess(q, result === "wrong" ? 0 : 100, null);
   showReveal(q.item, null, null);
   if (!typed) return finishAnswer(q, 0, { type: "skipped" });
-  const result = matchAnswer(q.item, typed);
   finishAnswer(q, result === "wrong" ? 0 : 100, { type: result, typed: typed.trim() });
 }
 function summaryDock() {
   const s = S();
-  const max = game.round.length * 100, pct = game.total / max;
+  const answered = game.round.filter(q => q.points != null);
+  const max = answered.length * 100, pct = game.total / max;
+  const ended = answered.length < game.round.length ? `<p class="ended">${fill(s.ended, { n: answered.length, total: game.round.length })}</p>` : "";
   const rank = s.ranks[pct >= .9 ? 3 : pct >= .7 ? 2 : pct >= .4 ? 1 : 0];
   setDock(`<div class="wrap">
     <div class="summary-head"><h2>${game.total} <small>/ ${max}</small><span class="rank">${rank}</span></h2>
       <div class="actions"><button class="quiet" id="change" type="button">${s.change}</button><button class="primary" id="again" type="button">${s.again}</button></div></div>
-    <div class="rows">${game.round.map((q, i) => `<button type="button" data-i="${i}"><span>${esc(label(q.item))}<em>${esc(shortResult(q))}</em></span><b class="${band(q.points)}">${q.points}</b></button>`).join("")}</div>
+    ${ended}<div class="rows">${answered.map((q, i) => `<button type="button" data-i="${i}"><span>${esc(label(q.item))}<em>${esc(shortResult(q))}</em></span><b class="${band(q.points)}">${q.points}</b></button>`).join("")}</div>
   </div>`);
   document.getElementById("again").onclick = startRound;
   document.getElementById("change").onclick = renderSetup;
   dock.querySelectorAll(".rows button").forEach(b => b.onclick = () => {
     dock.querySelectorAll(".rows button").forEach(o => o.classList.toggle("active", o === b));
-    const q = game.round[+b.dataset.i];
+    const q = answered[+b.dataset.i];
     showReveal(q.item, q.guess, q.hit);
   });
   document.getElementById("again").focus({ preventScroll: true });
+}
+/* Quitting shows what was answered so far. With nothing answered there is nothing to show. */
+function quitRound() {
+  if (game.round.some(q => q.points != null)) renderSummary();
+  else renderSetup();
 }
 function renderSummary() {
   game.phase = "summary";
@@ -781,6 +843,121 @@ function renderSummary() {
   showRegion(settings.region);
   clearMarks();
 }
+
+/* ---------- Music ---------- */
+/* An original looping tune, synthesised live so the page ships no audio files. */
+const music = (() => {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const VOLUME = .85;
+  const STEP = 60 / 116 / 2; /* one eighth note at 116 bpm */
+  /* Eight bars of eighths: bass root, then the three notes of the chord. Bar seven splits Dm and G. */
+  const C = [36, 60, 64, 67], AM = [33, 60, 64, 69], F = [29, 60, 65, 69], G = [31, 59, 62, 67], DM = [38, 62, 65, 69];
+  const BARS = [C, AM, F, G, C, AM, DM, C];
+  const MELODY = [
+    72, 0, 76, 0, 79, 0, 76, 0,   72, 0, 76, 0, 81, 79, 76, 0,
+    77, 0, 81, 0, 84, 0, 81, 79,  79, 0, 74, 0, 71, 74, 79, 0,
+    84, 0, 79, 0, 76, 79, 84, 0,  81, 0, 76, 0, 72, 76, 81, 0,
+    77, 74, 81, 0, 79, 74, 71, 74, 72, 0, 0, 0, 67, 71, 72, 0,
+  ];
+  const noiseBuffers = new WeakMap();
+  function tone(ctx, dest, midi, time, type, length, volume) {
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(volume, time + .008);
+    gain.gain.exponentialRampToValueAtTime(.0005, time + length);
+    osc.connect(gain).connect(dest);
+    osc.start(time);
+    osc.stop(time + length + .02);
+  }
+  function hat(ctx, dest, time, volume) {
+    if (!noiseBuffers.has(ctx)) {
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .05), ctx.sampleRate);
+      buffer.getChannelData(0).forEach((_, i, data) => { data[i] = Math.random() * 2 - 1; });
+      noiseBuffers.set(ctx, buffer);
+    }
+    const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+    source.buffer = noiseBuffers.get(ctx);
+    filter.type = "highpass";
+    filter.frequency.value = 7000;
+    gain.gain.setValueAtTime(volume, time);
+    gain.gain.exponentialRampToValueAtTime(.0005, time + .045);
+    source.connect(filter).connect(gain).connect(dest);
+    source.start(time);
+  }
+  /* The melody plays on every other pass of the eight bars, with a quieter arpeggio in between. */
+  function playStep(ctx, dest, n, time) {
+    const s = n % 64, pass = Math.floor(n / 64), inBar = s % 8, bar = Math.floor(s / 8);
+    const chord = bar === 6 && inBar >= 4 ? G : BARS[bar];
+    if (inBar === 0 || inBar === 4) tone(ctx, dest, chord[0] + 12, time, "triangle", STEP * 1.8, .24);
+    if (inBar === 3 || inBar === 7) tone(ctx, dest, chord[0] + 19, time, "triangle", STEP * .9, .14);
+    if (s % 2 === 1) {
+      for (const midi of chord.slice(1)) tone(ctx, dest, midi, time, "sine", STEP * .8, .045);
+      hat(ctx, dest, time, .03);
+    }
+    if (pass % 2 === 0) {
+      if (MELODY[s]) tone(ctx, dest, MELODY[s], time, "triangle", STEP * 1.5, .14);
+    } else {
+      tone(ctx, dest, chord[1 + inBar % 3] + 12, time, "sine", STEP * .9, .05);
+    }
+  }
+  let on = true, wanted = false, ctx = null, master = null, timer = null, step = 0, nextTime = 0;
+  try { on = localStorage.getItem("blank-map-music") !== "off"; } catch (e) {}
+  function tick() {
+    while (nextTime < ctx.currentTime + .3) {
+      playStep(ctx, master, step++, nextTime);
+      nextTime += STEP;
+    }
+  }
+  function play() {
+    if (!AudioCtx) return;
+    if (!ctx) {
+      ctx = new AudioCtx();
+      master = ctx.createGain();
+      master.gain.value = 0;
+      master.connect(ctx.destination);
+    }
+    ctx.resume();
+    master.gain.setTargetAtTime(VOLUME, ctx.currentTime, .15);
+    if (timer) return;
+    nextTime = ctx.currentTime + .08;
+    timer = setInterval(tick, 100);
+    tick();
+  }
+  function pause() {
+    if (!ctx || !timer) return;
+    clearInterval(timer);
+    timer = null;
+    master.gain.setTargetAtTime(0, ctx.currentTime, .05);
+    setTimeout(() => { if (!timer) ctx.suspend(); }, 300);
+  }
+  function drawButton() {
+    const button = document.getElementById("music");
+    button.hidden = !AudioCtx;
+    button.textContent = on ? S().musicOn : S().musicOff;
+    button.setAttribute("aria-pressed", String(on));
+    button.setAttribute("aria-label", S().musicLabel);
+    button.title = S().musicLabel;
+  }
+  document.getElementById("music").onclick = () => {
+    on = !on;
+    wanted = on;
+    try { localStorage.setItem("blank-map-music", on ? "on" : "off"); } catch (e) {}
+    if (on) play(); else pause();
+    drawButton();
+  };
+  /* Browsers throttle timers in hidden tabs, which would make the tune stumble. */
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) pause();
+    else if (wanted && on) play();
+  });
+  return {
+    begin() { wanted = true; if (on) play(); },
+    drawButton, playStep,
+    get playing() { return !!timer && !!ctx && ctx.state === "running"; },
+  };
+})();
 
 /* ---------- Language switch ---------- */
 function applyLanguage() {
@@ -792,6 +969,8 @@ function applyLanguage() {
   home.setAttribute("aria-label", s.home);
   home.title = s.home;
   document.getElementById("lang").setAttribute("aria-label", s.language);
+  music.drawButton();
+  redrawGuessed();
   document.getElementById("map").setAttribute("aria-label", s.map);
   document.querySelectorAll("#lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
 }
@@ -803,7 +982,7 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg };
+window.blankMap = { ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music };
 applyLanguage();
 layout();
 renderSetup();
