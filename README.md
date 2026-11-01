@@ -40,6 +40,8 @@ python -m http.server 8770 --directory .
 
 Facts about each place live in `facts.js`, which you can edit directly.
 
+Flag codes and the easy and hard lists live in `quiz.js`.
+
 Places live in `tools/content.py`, with German names in `tools/content_de.py`. `tools/build_data.py` joins them with the map data and writes `data.js`.
 
 Download these into an empty folder, then pass that folder to the script:
@@ -56,3 +58,7 @@ python tools/build_data.py path/to/downloads
 ## Map data
 
 [Natural Earth](https://www.naturalearthdata.com/), public domain, via [world-atlas](https://github.com/topojson/world-atlas).
+
+## Flags
+
+[flag-icons](https://github.com/lipis/flag-icons), MIT license, included in `flags/`.
