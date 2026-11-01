@@ -11,7 +11,7 @@
   --sea: #cfe4ee; --land: #f1e4b8; --coast: #5f6c60; --border: #4f4733; --grid: #a9c6d4;
   --panel: #f7fafa; --panel-2: #e8f0f2; --ink: #12303e; --muted: #4d6673; --line: #bfd0d6;
   --mark: #b0117a; --mark-ink: #ffffff; --pin: #12303e; --pick: #1769aa;
-  --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e; --river: #4a94c2; --peak: #8c6a3f;
+  --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e; --river: #9fc6dc; --peak: #8c6a3f;
   --display: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;
@@ -20,13 +20,13 @@
   --sea: #0a1a26; --land: #38392a; --coast: #8d9885; --border: #c4c6a8; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
-  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #2f5a75; --peak: #b49a76; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --sea: #0a1a26; --land: #38392a; --coast: #8d9885; --border: #c4c6a8; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
-  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
+  --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #2f5a75; --peak: #b49a76; color-scheme: dark;
 }
 html, body { height: 100%; margin: 0; }
 body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); overflow: hidden; }
@@ -42,7 +42,7 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 .graticule { fill: none; stroke: var(--grid); stroke-width: .6; }
 .land { fill: var(--land); stroke: var(--coast); stroke-width: .8; }
 .borders { fill: none; stroke: var(--border); stroke-width: 1; stroke-linejoin: round; }
-#map .relief-rivers { fill: none; stroke: var(--river); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#map .relief-rivers { fill: none; stroke: var(--river); stroke-width: .7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 #map .relief-peak { fill: var(--peak); stroke: var(--land); stroke-width: .5; pointer-events: none; }
 #map .hl-area { fill: var(--mark); fill-opacity: .62; stroke: var(--mark); stroke-width: 1.4; }
 #map .hl-river { fill: none; stroke: var(--mark); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
@@ -680,6 +680,7 @@ function markGuess(q, points, hit) {
 function renderSetup() {
   resetGuessed();
   music.end();
+  activeView = null;
   game.phase = "setup";
   game.drawDock = setupDock;
   svg.classed("placing", false);
@@ -863,6 +864,9 @@ function quitRound() {
 }
 function renderSummary() {
   music.end();
+  activeView = null;
+  game.hiddenGuess = null;
+  redrawGuessed();
   game.phase = "summary";
   game.index = game.round.length - 1;
   game.drawDock = summaryDock;

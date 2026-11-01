@@ -2,15 +2,39 @@
 
 A browser geography game. Name or find countries, capitals, mountains and rivers on an unlabelled world map, in German or English.
 
-## Run it
+## Play it
 
-The page loads `data.js`, so serve the folder instead of opening the file directly:
+Install [Docker](https://www.docker.com/products/docker-desktop/), start it, then run:
+
+```bash
+docker run -d --name blank-map -p 8770:80 ghcr.io/erikfaustmann/blank-map:latest
+```
+
+Then open http://localhost:8770. To stop and remove it:
+
+```bash
+docker rm -f blank-map
+```
+
+## Run it from source
+
+With Docker, from this folder:
+
+```bash
+docker compose up -d --build
+```
+
+Then open http://localhost:8770. To stop it:
+
+```bash
+docker compose down
+```
+
+Without Docker, serve the folder with Python. The page loads `data.js`, so opening the file directly won't work:
 
 ```bash
 python -m http.server 8770 --directory .
 ```
-
-Then open http://localhost:8770.
 
 ## Change the content
 

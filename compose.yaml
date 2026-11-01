@@ -1,0 +1,6 @@
+services:
+  blank-map:
+    build: .
+    ports:
+      - "8770:80"
+    restart: unless-stopped
