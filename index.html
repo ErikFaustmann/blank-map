@@ -8,7 +8,7 @@
 /* Layout: a full-bleed nautical chart with a docked title block below it. The palette follows
    chart conventions: buff land, tinted water, magenta for marked positions. Dark is night mode. */
 :root {
-  --sea: #cfe4ee; --land: #f1e4b8; --coast: #7d8a7c; --border: #a59a78; --grid: #a9c6d4;
+  --sea: #cfe4ee; --land: #f1e4b8; --coast: #5f6c60; --border: #4f4733; --grid: #a9c6d4;
   --panel: #f7fafa; --panel-2: #e8f0f2; --ink: #12303e; --muted: #4d6673; --line: #bfd0d6;
   --mark: #b0117a; --mark-ink: #ffffff; --pin: #12303e; --pick: #1769aa;
   --good: #1c7a4c; --ok: #a96a00; --bad: #bd3b1e; --river: #4a94c2; --peak: #8c6a3f;
@@ -17,13 +17,13 @@
   --mono: "IBM Plex Mono", Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
+  --sea: #0a1a26; --land: #38392a; --coast: #8d9885; --border: #c4c6a8; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
   --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
-  --sea: #0a1a26; --land: #38392a; --coast: #6f7a68; --border: #5c5f4b; --grid: #1c3444;
+  --sea: #0a1a26; --land: #38392a; --coast: #8d9885; --border: #c4c6a8; --grid: #1c3444;
   --panel: #0f222e; --panel-2: #173140; --ink: #dfeaee; --muted: #9db3bd; --line: #2a4453;
   --mark: #f472c8; --mark-ink: #2a0a20; --pin: #ffffff; --pick: #58b4f0;
   --good: #5fce96; --ok: #e6ad4d; --bad: #f08a6c; --river: #4a8fb8; --peak: #b49a76; color-scheme: dark;
@@ -40,8 +40,8 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #map path { vector-effect: non-scaling-stroke; }
 .sphere { fill: var(--sea); stroke: var(--grid); stroke-width: 1; }
 .graticule { fill: none; stroke: var(--grid); stroke-width: .6; }
-.land { fill: var(--land); stroke: var(--coast); stroke-width: .6; }
-.borders { fill: none; stroke: var(--border); stroke-width: .6; stroke-linejoin: round; }
+.land { fill: var(--land); stroke: var(--coast); stroke-width: .8; }
+.borders { fill: none; stroke: var(--border); stroke-width: 1; stroke-linejoin: round; }
 #map .relief-rivers { fill: none; stroke: var(--river); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 #map .relief-peak { fill: var(--peak); stroke: var(--land); stroke-width: .5; pointer-events: none; }
 #map .hl-area { fill: var(--mark); fill-opacity: .62; stroke: var(--mark); stroke-width: 1.4; }
@@ -67,6 +67,10 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #lang { display: flex; }
 #music { order: 1; height: 38px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; }
 #music[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
+#volume-box { order: 2; display: flex; align-items: center; height: 38px; padding: 0 10px; background: var(--panel); border: 1px solid var(--ink); border-radius: 3px; }
+#volume-box[hidden] { display: none; }
+#volume-box.off { border-color: var(--line); }
+#volume { width: 84px; margin: 0; accent-color: var(--mark); cursor: pointer; }
 #legend { position: absolute; bottom: 8px; right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; gap: 3px 10px;
   padding: 4px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; font-size: 12px; pointer-events: none; }
 #legend[hidden] { display: none; }
@@ -168,6 +172,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
     <canvas id="sparks" aria-hidden="true"></canvas>
     <div id="topbar">
     <button id="music" type="button"></button>
+    <label id="volume-box"><input id="volume" type="range" min="0" max="100" step="1"></label>
     <div id="lang" role="group">
       <button type="button" data-lang="de">DE</button>
       <button type="button" data-lang="en">EN</button>
@@ -230,7 +235,7 @@ const STRINGS = {
     million: "million km²", river: "About {km} km long, flowing into {mouth}.",
     ranks: ["Uncharted waters", "Coastal pilot", "Ocean navigator", "Master cartographer"],
     quit: "Quit", ended: "Round ended after {n} of {total} questions.",
-    musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music",
+    musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music", volumeLabel: "Music volume",
     legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
   },
@@ -259,7 +264,7 @@ const STRINGS = {
     million: "Mio. km²", river: "Rund {km} km lang, mündet in {mouth}.",
     ranks: ["Unbekannte Gewässer", "Küstengewässer", "Hochseetauglich", "Meisterhafte Kartografie"],
     quit: "Beenden", ended: "Runde nach {n} von {total} Fragen beendet.",
-    musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik",
+    musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik", volumeLabel: "Musiklautstärke",
     legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
   },
@@ -942,7 +947,6 @@ const fireworks = (() => {
 /* An original looping score in D minor, synthesised live so the page ships no audio files. */
 const music = (() => {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  const VOLUME = .8;
   const STEP = 60 / 76 / 2; /* one eighth note at 76 bpm */
   /* Each chord: the bass note, then the three notes the strings hold for the bar. */
   const DM = [38, 62, 65, 69], BB = [34, 62, 65, 70], F = [41, 60, 65, 69], C = [36, 60, 64, 67], GM = [43, 62, 67, 70], A = [33, 61, 64, 69];
@@ -1052,7 +1056,12 @@ const music = (() => {
     }
   }
   let on = true, wanted = false, ctx = null, master = null, mix = null, timer = null, step = 0, nextTime = 0;
-  try { on = localStorage.getItem("blank-map-music") !== "off"; } catch (e) {}
+  let volume = .8;
+  try {
+    on = localStorage.getItem("blank-map-music") !== "off";
+    const saved = localStorage.getItem("blank-map-volume");
+    if (saved !== null && +saved >= 0 && +saved <= 1) volume = +saved;
+  } catch (e) {}
   function tick() {
     while (nextTime < ctx.currentTime + .3) {
       playStep(mix, step++, nextTime);
@@ -1069,7 +1078,7 @@ const music = (() => {
       mix = buildMix(ctx, master);
     }
     ctx.resume();
-    master.gain.setTargetAtTime(VOLUME, ctx.currentTime, .15);
+    master.gain.setTargetAtTime(volume, ctx.currentTime, .15);
     if (timer) return;
     nextTime = ctx.currentTime + .08;
     timer = setInterval(tick, 100);
@@ -1089,6 +1098,12 @@ const music = (() => {
     button.setAttribute("aria-pressed", String(on));
     button.setAttribute("aria-label", S().musicLabel);
     button.title = S().musicLabel;
+    const box = document.getElementById("volume-box"), slider = document.getElementById("volume");
+    box.hidden = !AudioCtx;
+    box.classList.toggle("off", !on);
+    box.title = S().volumeLabel;
+    slider.setAttribute("aria-label", S().volumeLabel);
+    slider.value = Math.round(volume * 100);
   }
   document.getElementById("music").onclick = () => {
     on = !on;
@@ -1096,6 +1111,11 @@ const music = (() => {
     try { localStorage.setItem("blank-map-music", on ? "on" : "off"); } catch (e) {}
     if (on) play(); else pause();
     drawButton();
+  };
+  document.getElementById("volume").oninput = e => {
+    volume = e.target.value / 100;
+    try { localStorage.setItem("blank-map-volume", String(volume)); } catch (err) {}
+    if (timer) master.gain.setTargetAtTime(volume, ctx.currentTime, .03);
   };
   /* Browsers throttle timers in hidden tabs, which would make the tune stumble. */
   document.addEventListener("visibilitychange", () => {
@@ -1106,6 +1126,7 @@ const music = (() => {
     begin() { wanted = true; if (on) play(); },
     end() { wanted = false; pause(); },
     drawButton, buildMix, playStep, stepLength: STEP,
+    get level() { return master ? master.gain.value : null; },
     get playing() { return !!timer && !!ctx && ctx.state === "running"; },
   };
 })();
