@@ -70,8 +70,8 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #account { order: 3; height: 38px; max-width: 170px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #account[hidden] { display: none; }
 #lang { display: flex; }
-#music { order: 1; height: 38px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; }
-#music[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
+#music, #effects { order: 1; height: 38px; padding: 0 12px; font: 600 15px/1 var(--display); letter-spacing: .04em; white-space: nowrap; }
+#music[aria-pressed="false"], #effects[aria-pressed="false"] { color: var(--muted); border-color: var(--line); }
 #volume-box { order: 2; display: flex; align-items: center; height: 38px; padding: 0 10px; background: var(--panel); border: 1px solid var(--ink); border-radius: 3px; }
 #volume-box[hidden] { display: none; }
 #volume-box.off { border-color: var(--line); }
@@ -150,12 +150,16 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 .fact-name { padding: 0; font: inherit; color: inherit; background: none; border: 0; border-bottom: 2px dotted var(--mark); border-radius: 0; cursor: help; }
 .fact-name:hover:not(:disabled) { background: none; color: var(--mark); }
 .rows button[data-facts] { cursor: help; }
-#fact-pop { position: fixed; z-index: 5; width: min(400px, calc(100vw - 32px)); overflow-y: auto; padding: 10px 14px; background: var(--panel); border: 2px solid var(--ink); border-radius: 3px; pointer-events: none; }
+#fact-pop { position: fixed; z-index: 5; width: min(540px, calc(100vw - 32px)); overflow-y: auto; padding: 10px 14px; background: var(--panel); border: 2px solid var(--ink); border-radius: 3px; pointer-events: none; }
 #fact-pop[hidden] { display: none; }
 #fact-pop h3 { margin: 0 0 4px; font: 600 20px/1.1 var(--display); }
 #fact-pop ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
 .fact-photo { margin: 0 0 8px; }
-.fact-photo img { display: block; width: 100%; height: auto; max-height: 190px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--line); }
+.fact-frame { position: relative; }
+.fact-frame .fact-shot { display: block; width: 100%; height: auto; max-height: min(330px, 45vh); object-fit: cover; background: var(--panel-2); border: 1px solid var(--line); }
+/* The flag sits in the photo's corner, framed so it stands out on any background. */
+.fact-flag { position: absolute; left: 10px; bottom: 10px; height: 46px; width: auto; border: 2px solid var(--panel); background: var(--panel); box-shadow: 0 1px 6px rgba(0, 0, 0, .45); }
+.fact-flag.solo { position: static; display: block; margin-bottom: 8px; border-color: var(--line); box-shadow: none; }
 .fact-photo figcaption { margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--muted); }
 /* Middle-earth vignettes, drawn in the map's own colours so they follow light and dark mode. */
 .fact-art { display: block; width: 100%; height: auto; margin: 0 0 8px; background: var(--sea); border: 1px solid var(--line); }
@@ -228,6 +232,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
     <canvas id="sparks" aria-hidden="true"></canvas>
     <div id="topbar">
     <button id="music" type="button"></button>
+    <button id="effects" type="button"></button>
     <label id="volume-box"><input id="volume" type="range" min="0" max="100" step="1"></label>
     <div id="lang" role="group">
       <button type="button" data-lang="de">DE</button>
@@ -344,6 +349,7 @@ const STRINGS = {
     ranks: ["Uncharted waters", "Coastal pilot", "Ocean navigator", "Master cartographer"],
     quit: "Quit", ended: "Round ended after {n} of {total} questions.",
     musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music", volumeLabel: "Music volume",
+    effectsOn: "Sounds: on", effectsOff: "Sounds: off", effectsLabel: "Sound effects for right and wrong answers",
     photoBy: "Photo: {by}, {license}, via Wikimedia Commons.",
     factsHint: "Point at or tap the name for more facts.", legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
@@ -411,6 +417,7 @@ const STRINGS = {
     ranks: ["Unbekannte Gewässer", "Küstengewässer", "Hochseetauglich", "Meisterhafte Kartografie"],
     quit: "Beenden", ended: "Runde nach {n} von {total} Fragen beendet.",
     musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik", volumeLabel: "Musiklautstärke",
+    effectsOn: "Töne: an", effectsOff: "Töne: aus", effectsLabel: "Töne für richtige und falsche Antworten",
     photoBy: "Foto: {by}, {license}, über Wikimedia Commons.",
     factsHint: "Zeig auf den Namen oder tippe ihn an, um mehr Fakten zu sehen.", legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
@@ -476,7 +483,7 @@ for (const c of DATA.countries) {
     } };
   ITEMS.push(country);
   ITEMS.push({ ...country, kind: "flag", flag: `flags/${QUIZ.flags[c.name]}.svg` });
-  if (c.capital) ITEMS.push({ kind: "capital", names: { en: c.capital, de: c.capitalDe.name },
+  if (c.capital) ITEMS.push({ kind: "capital", country: c.name, names: { en: c.capital, de: c.capitalDe.name },
     aliases: [...c.capitalAliases, ...c.capitalDe.aliases], region: c.region,
     geo: { type: "Point", coordinates: c.capitalCoord },
     full: 40, zero: clamp(1.5 * size, 400, 2000),
@@ -626,7 +633,7 @@ for (const s of USA.states) {
     fact: () => `${fill(S().factCapital, { name: s.capital.en })} ${fill(S().about, { area: roundArea(size * size) })}` };
   ITEMS.push(state);
   const c = s.capital;
-  ITEMS.push({ world: "usa", kind: "capital", names: { en: c.en, de: c.de }, aliases: c.aliases, region: s.region, tier: c.tier, facts: c.facts,
+  ITEMS.push({ world: "usa", kind: "capital", state: s.en, names: { en: c.en, de: c.de }, aliases: c.aliases, region: s.region, tier: c.tier, facts: c.facts,
     geo: { type: "Point", coordinates: usaInset(c.at) }, full: 25, zero: clamp(1.5 * size, 200, 700),
     fact: () => fill(S().capitalOf, { name: label(state) }) });
 }
@@ -1004,14 +1011,29 @@ const ME_ART = (() => {
   };
 })();
 const ME_ART_FOR = Object.fromEntries(Object.entries(MIDDLE.art).flatMap(([art, names]) => names.map(n => [n, art])));
+/* Countries and capitals show their country's flag, US states and capitals their state's. */
+function flagFor(item) {
+  if (item.world === "earth") {
+    const country = item.kind === "capital" ? item.country : isCountryLike(item) ? item.names.en : null;
+    return country && QUIZ.flags[country] ? `flags/${QUIZ.flags[country]}.svg` : null;
+  }
+  if (item.world === "usa") {
+    const state = item.kind === "capital" ? item.state : item.kind === "country" ? item.names.en : null;
+    return (window.BLANK_MAP_IMAGES?.usa?.flag?.[state] || {}).src || null;
+  }
+  return null;
+}
 function pictureFor(item) {
   if (item.world === "middle") {
     const art = ME_ART_FOR[item.names.en] || { country: "plains", capital: "ruins", mountain: "peaks", river: "river" }[item.kind];
     return `<svg class="fact-art" viewBox="0 0 360 120" aria-hidden="true">${ME_ART[art]}</svg>`;
   }
-  const photo = photoFor(item);
-  if (!photo) return "";
-  return `<figure class="fact-photo"><img src="${esc(photo.src)}" width="${photo.w}" height="${photo.h}" alt="" onerror="this.parentNode.remove()">
+  const photo = photoFor(item), flag = flagFor(item);
+  const flagImg = solo => flag ? `<img class="fact-flag${solo ? " solo" : ""}" src="${esc(flag)}" alt="">` : "";
+  if (!photo) return flagImg(true);
+  /* If the photo fails to load, the flag stays on its own. */
+  return `<figure class="fact-photo"><div class="fact-frame"><img class="fact-shot" src="${esc(photo.src)}" width="${photo.w}" height="${photo.h}" alt=""
+    onerror="const f = this.closest('figure'); f.querySelector('.fact-flag')?.classList.add('solo'); f.replaceWith(...f.querySelectorAll('.fact-flag'))">${flagImg(false)}</div>
     <figcaption>${esc(fill(S().photoBy, { by: photo.by, license: photo.license }))}</figcaption></figure>`;
 }
 function hideFacts() { factPop.hidden = true; }
@@ -1247,6 +1269,8 @@ function finishAnswer(q, points, result) {
   svg.classed("placing", false);
   feedbackDock();
   if (points === 100) fireworks();
+  /* A skip is not a guess, so it stays quiet. */
+  if (result.type !== "skipped") effects.play({ good: "right", ok: "close", bad: "wrong" }[band(points)]);
   /* Fetch the picture now, so it is ready when the player points at the name. */
   const photo = photoFor(q.item);
   if (photo) new Image().src = photo.src;
@@ -1690,6 +1714,7 @@ const music = (() => {
     },
     end() { wanted = false; pause(); },
     drawButton, buildMix, SONGS,
+    get volume() { return volume; },
     get level() { return master ? master.gain.value : null; },
     get playing() { return !!timer && !!ctx && ctx.state === "running"; },
   };
@@ -1948,6 +1973,66 @@ async function loadAccount() {
   else drawAccountButton();
 }
 
+/* ---------- Sound effects ---------- */
+/* Short synthesised sounds for answers. They have their own switch, follow the music's volume slider,
+   and use their own audio context, so they play even while the music is off. */
+const effects = (() => {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let ctx = null, on = true;
+  try { on = localStorage.getItem("blank-map-effects") !== "off"; } catch (e) {}
+  const hz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+  function tone(out, midi, start, length, type, level) {
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(hz(midi), start);
+    gain.gain.setValueAtTime(.0001, start);
+    gain.gain.exponentialRampToValueAtTime(level, start + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, start + length);
+    osc.connect(gain).connect(out);
+    osc.start(start);
+    osc.stop(start + length + .02);
+    return osc;
+  }
+  const SOUNDS = {
+    /* A bright rising arpeggio, like a little bell. */
+    right: (out, t) => [72, 76, 79, 84].forEach((m, i) => {
+      tone(out, m, t + i * .07, .55, "sine", .45);
+      tone(out, m + 12, t + i * .07, .22, "triangle", .1);
+    }),
+    /* Two softer notes for an answer that was close. */
+    close: (out, t) => [72, 79].forEach((m, i) => tone(out, m, t + i * .1, .4, "sine", .32)),
+    /* A low falling "bwomp", gentle enough to hear often. */
+    wrong: (out, t) => {
+      tone(out, 50, t, .5, "triangle", .5).frequency.exponentialRampToValueAtTime(hz(43), t + .42);
+      tone(out, 57, t, .32, "sine", .2).frequency.exponentialRampToValueAtTime(hz(50), t + .3);
+    },
+  };
+  function drawButton() {
+    const button = document.getElementById("effects");
+    button.hidden = !AudioCtx;
+    button.textContent = on ? S().effectsOn : S().effectsOff;
+    button.setAttribute("aria-pressed", String(on));
+    button.setAttribute("aria-label", S().effectsLabel);
+    button.title = S().effectsLabel;
+  }
+  document.getElementById("effects").onclick = () => {
+    on = !on;
+    try { localStorage.setItem("blank-map-effects", on ? "on" : "off"); } catch (e) {}
+    drawButton();
+    if (on) play("right");
+  };
+  function play(name) {
+    if (!on || !AudioCtx || !music.volume) return;
+    if (!ctx) ctx = new AudioCtx();
+    ctx.resume();
+    const out = ctx.createGain();
+    out.gain.value = music.volume * .6;
+    out.connect(ctx.destination);
+    SOUNDS[name](out, ctx.currentTime + .02);
+  }
+  return { play, drawButton, SOUNDS };
+})();
+
 /* ---------- Language switch ---------- */
 function applyLanguage() {
   const s = S();
@@ -1960,6 +2045,7 @@ function applyLanguage() {
   document.getElementById("lang").setAttribute("aria-label", s.language);
   drawAccountButton();
   music.drawButton();
+  effects.drawButton();
   redrawGuessed();
   document.getElementById("map").setAttribute("aria-label", s.map);
   document.querySelectorAll("#lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
@@ -1972,10 +2058,10 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { pictureFor, account, middle, usa, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, get projection() { return projection; }, svg, music, fireworks, factsFor };
+window.blankMap = { flagFor, effects, pictureFor, account, middle, usa, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, get projection() { return projection; }, svg, music, fireworks, factsFor };
 applyLanguage();
 layout();
 renderSetup();
 loadAccount();
-window.addEventListener("resize", refit);
+window.addEventListener("resize", () => { hideFacts(); refit(); });
 </script>

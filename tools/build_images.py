@@ -166,14 +166,24 @@ def wikidata_images(ids):
     return out
 
 
-def file_info(names):
+def state_flags(qids):
+    """Wikidata flag (P41) file names for the US states, which the game has no flag files for."""
+    values = " ".join(f"wd:{i}" for i in qids)
+    data = get("https://query.wikidata.org/sparql", {"query": f"SELECT ?item ?flag WHERE {{ VALUES ?item {{ {values} }} ?item wdt:P41 ?flag }}", "format": "json"})
+    out = {}
+    for row in data["results"]["bindings"]:
+        out.setdefault(row["item"]["value"].rsplit("/", 1)[1], urllib.parse.unquote(row["flag"]["value"].rsplit("/", 1)[1]).replace("_", " "))
+    return out
+
+
+def file_info(names, width=WIDTH):
     """Thumbnail address, size, author and license for Commons files."""
     out = {}
     names = sorted(set(names))
     for start in range(0, len(names), 20):
         data = get("https://commons.wikimedia.org/w/api.php", {
             "action": "query", "format": "json", "formatversion": 2, "titles": "|".join(f"File:{n}" for n in names[start:start + 20]),
-            "prop": "imageinfo", "iiprop": "url|size|extmetadata", "iiurlwidth": WIDTH})
+            "prop": "imageinfo", "iiprop": "url|size|extmetadata", "iiurlwidth": width})
         hops = {n["to"]: n["from"] for n in data["query"].get("normalized", [])}
         for page in data["query"]["pages"]:
             info = (page.get("imageinfo") or [None])[0]
@@ -214,7 +224,18 @@ def main():
             continue
         bucket = result.setdefault(world, {}).setdefault("country" if kind == "state" else kind, {})
         bucket[name] = {k: pick[k] for k in ("src", "w", "h", "by", "license")}
-    total = sum(len(b) for w in result.values() for b in w.values())
+    # State flags are almost all in the public domain. Only those are used, so they need no credit line.
+    states = {name: pages[("usa", "state", name)]["pageprops"]["wikibase_item"] for (world, kind, name) in pages if kind == "state"}
+    flags = state_flags(sorted(states.values()))
+    flag_info = file_info(list(flags.values()), width=250)
+    for name, qid in states.items():
+        info = flag_info.get(flags.get(qid))
+        if info and re.match(r"public domain|pd|cc0", info["license"], re.I):
+            result["usa"].setdefault("flag", {})[name] = {k: info[k] for k in ("src", "w", "h")}
+        else:
+            print("no public-domain flag:", name)
+    print(len(result["usa"].get("flag", {})), "state flags")
+    total = sum(len(b) for w in result.values() for k, b in w.items() if k != "flag")
     print(f"{total} pictures, {len(missing)} places without one")
     for m in missing:
         print("no free photo:", m)
