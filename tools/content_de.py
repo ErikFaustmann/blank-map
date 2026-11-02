@@ -1,4 +1,4 @@
-# German names for Blank Map, keyed by the English name in content.py.
+# German names for Mapolo, keyed by the English name in content.py.
 # A value is "German name; alias; alias". Places missing here use the same name in both languages.
 
 COUNTRIES = {

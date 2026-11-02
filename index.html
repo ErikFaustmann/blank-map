@@ -1,5 +1,7 @@
 <meta charset="utf-8">
-<title>Blank Map</title>
+<title>Mapolo</title>
+<!-- The tab icon: a bird flying across a globe. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2230%22 fill=%22%231769aa%22/%3E%3Cg fill=%22none%22 stroke=%22%236fb3e3%22 stroke-width=%223%22%3E%3Cellipse cx=%2232%22 cy=%2232%22 rx=%2212%22 ry=%2230%22/%3E%3Cpath d=%22M2 32h60%22/%3E%3C/g%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2230%22 fill=%22none%22 stroke=%22%230d2633%22 stroke-width=%223%22/%3E%3Cpath d=%22M6 34C14 18 25 18 32 29C39 18 50 18 58 34C49 28 40 30 32 42C24 30 15 28 6 34Z%22 fill=%22%23fff%22 stroke=%22%230d2633%22 stroke-width=%222%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -236,6 +238,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="facts.js"></script>
 <script src="quiz.js"></script>
 <script src="middleearth.js"></script>
+<script src="usa.js"></script>
 <script>
 "use strict";
 const DATA = window.BLANK_MAP_DATA;
@@ -264,7 +267,16 @@ const meLonLat = ([x, y]) => [(x - MIDDLE.size[0] / 2) * ME_DEGREES, (MIDDLE.siz
 const meBox = ([x0, y0, x1, y1]) => [...meLonLat([x0, y1]), ...meLonLat([x1, y0])];
 REGIONS["Middle-earth"] = { world: "middle", all: true, rotate: 0, box: meBox([0, 0, ...MIDDLE.size]) };
 for (const [name, box] of Object.entries(MIDDLE.areas)) REGIONS[name] = { world: "middle", rotate: 0, box: meBox(box) };
-const ROOTS = { earth: "World", middle: "Middle-earth" };
+/* The USA gets a conic projection centred on 96° W, as US maps usually do. */
+const USA = window.BLANK_MAP_USA;
+REGIONS.USA = { world: "usa", all: true, rotate: 96, box: [-125, 21.5, -66.5, 49.5] };
+Object.assign(REGIONS, {
+  Northeast: { world: "usa", rotate: 96, box: [-80.6, 38.9, -66.9, 47.5] },
+  Midwest: { world: "usa", rotate: 96, box: [-104.1, 36, -80.5, 49.4] },
+  South: { world: "usa", rotate: 96, box: [-106.7, 24.5, -75, 40.7] },
+  West: { world: "usa", rotate: 96, box: [-124.8, 21.5, -102, 49] },
+});
+const ROOTS = { earth: "World", usa: "USA", middle: "Middle-earth" };
 function currentWorld() { return REGIONS[settings.region].world; }
 const kindsFor = world => KINDS.filter(k => world === "earth" || k !== "flag");
 
@@ -277,8 +289,17 @@ const STRINGS = {
     findFlag: "Find the country with this flag", flagAlt: "The flag to identify",
     nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river" },
     regions: { World: "World", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
-      "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South" },
-    legendMap: "Map", worlds: { earth: "Earth", middle: "Middle-earth" }, meRiver: "About {km} km long.",
+      "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South",
+      USA: "All states", Northeast: "Northeast", Midwest: "Midwest", South: "South", West: "West" },
+    legendMap: "Map", worlds: { earth: "Earth", usa: "USA", middle: "Middle-earth" }, meRiver: "About {km} km long.",
+    usa: {
+      kinds: { country: "States", capital: "Capitals", mountain: "Mountains", river: "Rivers" },
+      one: { country: "State", capital: "State capital", mountain: "Mountain", river: "River" },
+      nameThis: { country: "Name this state", capital: "Name this state capital", mountain: "Name this mountain", river: "Name this river" },
+      hintCountry: "Your click on a state is your answer. Scroll or pinch to zoom.", rightCountry: "You coloured in the right state.",
+      intro: "Name the states, state capitals, mountains and rivers of the United States, or find them on an unlabelled map.",
+      credit: "Map data: US Census Bureau via us-atlas, and Natural Earth, both public domain. Alaska and Hawaii are moved into boxes, and Alaska is shrunk.",
+    },
     middle: {
       kinds: { country: "Lands", capital: "Places", mountain: "Mountains", river: "Rivers" },
       one: { country: "Land", capital: "Place", mountain: "Mountain", river: "River" },
@@ -326,8 +347,17 @@ const STRINGS = {
     findFlag: "Finde das Land mit dieser Flagge", flagAlt: "Die gesuchte Flagge",
     nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
     regions: { World: "Welt", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
-      "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden" },
-    legendMap: "Karte", worlds: { earth: "Erde", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
+      "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden",
+      USA: "Alle Staaten", Northeast: "Nordosten", Midwest: "Mittlerer Westen", South: "Süden", West: "Westen" },
+    legendMap: "Karte", worlds: { earth: "Erde", usa: "USA", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
+    usa: {
+      kinds: { country: "Staaten", capital: "Hauptstädte", mountain: "Berge", river: "Flüsse" },
+      one: { country: "Bundesstaat", capital: "Hauptstadt eines Bundesstaats", mountain: "Berg", river: "Fluss" },
+      nameThis: { country: "Wie heißt dieser Bundesstaat?", capital: "Wie heißt diese Hauptstadt?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
+      hintCountry: "Dein Klick auf einen Bundesstaat ist deine Antwort. Scrolle oder ziehe mit zwei Fingern zum Zoomen.", rightCountry: "Du hast den richtigen Bundesstaat eingefärbt.",
+      intro: "Benenne die Bundesstaaten, Hauptstädte, Berge und Flüsse der USA oder finde sie auf einer unbeschrifteten Karte.",
+      credit: "Kartendaten: US Census Bureau über us-atlas und Natural Earth, beide gemeinfrei. Alaska und Hawaii sind in Kästen verschoben, Alaska ist verkleinert.",
+    },
     middle: {
       kinds: { country: "Länder", capital: "Orte", mountain: "Berge", river: "Flüsse" },
       one: { country: "Land", capital: "Ort", mountain: "Berg", river: "Fluss" },
@@ -378,8 +408,8 @@ const S = () => STRINGS[lang];
 const fill = (text, vars = {}) => text.replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 const num = n => Math.round(n).toLocaleString(lang);
 const label = item => item.names[lang];
-/* Middle-earth has its own words for a few things, like lands instead of countries. */
-const W = (key, world = currentWorld()) => (world === "middle" && S().middle[key]) || S()[key];
+/* The USA and Middle-earth have their own words for a few things, like states or lands instead of countries. */
+const W = (key, world = currentWorld()) => (S()[world] && S()[world][key]) || S()[key];
 
 /* ---------- Content ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -524,6 +554,57 @@ for (const r of MIDDLE.rivers) {
   middleItem("river", r, geo, 20, clamp(km * .4, 150, 600), () => fill(S().meRiver, { km: num(Math.round(km / 10) * 10) }));
 }
 
+/* ---------- USA ---------- */
+/* Alaska and Hawaii move into boxes below the mainland, as on most US maps. Alaska shrinks to a third of its size
+   on the way. Everything inside them, from borders to peaks, moves the same way. */
+const usaInset = (() => {
+  const rad = Math.PI / 180;
+  const place = (lon, lat, [lon0, lat0], [lon1, lat1], scale) => {
+    const y = lat1 + (lat - lat0) * scale;
+    return [lon1 + (lon - lon0) * scale * Math.cos(lat * rad) / Math.cos(y * rad), y];
+  };
+  return ([lon, lat]) => {
+    if (lon > 0) lon -= 360;
+    if (lat > 50 && lon < -129) return place(lon, lat, [-152, 63], [-116, 25.5], .35);
+    if (lat < 25 && lon < -150) return place(lon, lat, [-157.5, 20.5], [-104.5, 24.5], 1);
+    return [lon, lat];
+  };
+})();
+const usa = (() => {
+  const moveAll = coords => typeof coords[0] === "number" ? usaInset(coords) : coords.map(moveAll);
+  const states = topojson.feature(USA.topology, USA.topology.objects.states).features;
+  for (const f of states) f.geometry.coordinates = moveAll(f.geometry.coordinates);
+  const border = topojson.mesh(USA.topology, USA.topology.objects.states, (a, b) => a !== b);
+  border.coordinates = moveAll(border.coordinates);
+  const box = name => {
+    const [[w, s], [e, n]] = d3.geoBounds(states.find(f => f.properties.name === name));
+    const [x0, y0, x1, y1] = [w - .8, s - .8, e + .8, n + .8];
+    return [[x0, y0], [x0, y1], [x1, y1], [x1, y0], [x0, y0]];
+  };
+  return { states, border, land: { type: "FeatureCollection", features: states }, insets: { type: "MultiLineString", coordinates: [box("Alaska"), box("Hawaii")] } };
+})();
+const usaStateAt = lonLat => usa.states.find(f => d3.geoContains(f, lonLat));
+for (const s of USA.states) {
+  const geo = usa.states.find(f => f.properties.name === s.en).geometry;
+  const size = Math.sqrt(areaKm2(geo));
+  const state = { world: "usa", kind: "country", names: { en: s.en, de: s.de }, aliases: s.aliases, region: s.region, tier: s.tier, facts: s.facts,
+    geo, size, full: 30, zero: clamp(1.2 * size, 150, 800),
+    fact: () => `${fill(S().factCapital, { name: s.capital.en })} ${fill(S().about, { area: roundArea(size * size) })}` };
+  ITEMS.push(state);
+  const c = s.capital;
+  ITEMS.push({ world: "usa", kind: "capital", names: { en: c.en, de: c.de }, aliases: c.aliases, region: s.region, tier: c.tier, facts: c.facts,
+    geo: { type: "Point", coordinates: usaInset(c.at) }, full: 25, zero: clamp(1.5 * size, 200, 700),
+    fact: () => fill(S().capitalOf, { name: label(state) }) });
+}
+for (const m of USA.mountains) {
+  const at = usaInset(m.at), home = usaStateAt(at);
+  ITEMS.push({ world: "usa", kind: "mountain", names: { en: m.en, de: m.de }, aliases: m.aliases, region: USA.states.find(s => s.en === home.properties.name).region,
+    tier: m.tier, facts: m.facts, geo: { type: "Point", coordinates: at }, full: 30, zero: 600,
+    fact: () => `${num(m.elevation)} m. ${S().regions[USA.states.find(s => s.en === home.properties.name).region]}.` });
+}
+for (const r of USA.rivers) ITEMS.push({ world: "usa", kind: "river", names: { en: r.en, de: r.de }, aliases: r.aliases, region: r.region, tier: r.tier, facts: r.facts,
+  geo: { type: "MultiLineString", coordinates: r.lines.map(line => line.map(usaInset)) }, full: 20, zero: 500, fact: () => `${S().regions[r.region]}.` });
+
 /* Everything a click can colour in: quiz countries, plus territories such as Greenland that aren't asked about. */
 const claimed = new Set(DATA.countries.flatMap(c => [c.shape, ...c.extra]));
 const quizCountries = ITEMS.filter(i => i.kind === "country");
@@ -531,6 +612,7 @@ const HITS = [
   ...quizCountries.map(item => ({ item, geo: item.geo, world: item.world })),
   ...allFeatures.filter(f => !claimed.has(f.properties.name)).map(f => ({ item: null, geo: f, world: "earth" })),
   ...middle.lands.filter(l => l.quiz === false).map(l => ({ item: null, geo: l.geo, world: "middle" })),
+  ...usa.states.filter(f => !USA.states.some(s => s.en === f.properties.name)).map(f => ({ item: null, geo: f, world: "usa" })),
 ].map(h => ({ ...h, bounds: d3.geoBounds(h.geo) }));
 /* Middle-earth shares its coordinates with a patch of real ocean and Africa, so only the current world counts. */
 function hitAt(lonLat) {
@@ -613,7 +695,9 @@ const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "s
 const svg = d3.select("#map");
 const zoomLayer = svg.append("g");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const projection = d3.geoNaturalEarth1();
+const PROJECTIONS = { earth: d3.geoNaturalEarth1(), usa: d3.geoConicEqualArea().parallels([29.5, 45.5]) };
+PROJECTIONS.middle = PROJECTIONS.earth;
+let projection = PROJECTIONS.earth;
 const geoPath = d3.geoPath(projection);
 const graticule = d3.geoGraticule().step([30, 30])();
 const borders = topojson.mesh(DATA.world, countriesObject, (a, b) => {
@@ -635,7 +719,7 @@ const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
 const overlay = zoomLayer.append("g");
 const markers = zoomLayer.append("g");
 let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null, drawnWorld = null;
-const fitTarget = () => currentWorld() === "middle" ? middle.frame : { type: "Sphere" };
+const fitTarget = () => ({ middle: middle.frame, usa: usa.land })[currentWorld()] || { type: "Sphere" };
 
 const sizedToScreen = d => `translate(${d.x},${d.y}) scale(${1 / currentK})`;
 /* A click now answers at once, so a hand that shifts by a pixel or two must still count as a click. */
@@ -652,10 +736,11 @@ function drawBase() {
   drawnWorld = currentWorld();
   svg.classed("middle", inMiddle);
   base.sphere.attr("d", geoPath(fitTarget()));
-  base.graticule.attr("d", inMiddle ? null : geoPath(graticule));
-  base.land.attr("d", geoPath(inMiddle ? middle.land : { type: "FeatureCollection", features: allFeatures }));
+  const inUsa = currentWorld() === "usa";
+  base.graticule.attr("d", inMiddle ? null : geoPath(inUsa ? { type: "GeometryCollection", geometries: [graticule, usa.insets] } : graticule));
+  base.land.attr("d", geoPath(inMiddle ? middle.land : inUsa ? usa.land : { type: "FeatureCollection", features: allFeatures }));
   landClip.attr("d", inMiddle ? geoPath(middle.land) : null);
-  base.borders.attr("d", geoPath(inMiddle ? middle.borders : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
+  base.borders.attr("d", geoPath(inMiddle ? middle.borders : inUsa ? usa.border : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
   drawRelief();
   redrawGuessed();
   redrawPicks();
@@ -718,11 +803,15 @@ function regionBounds(region) {
 }
 function showRegion(region, opts) {
   homeRegion = region;
-  setRotation(REGIONS[region].rotate);
-  if (drawnWorld !== REGIONS[region].world && viewW) {
+  const world = REGIONS[region].world;
+  if (drawnWorld !== world && viewW) {
+    projection = PROJECTIONS[world];
+    geoPath.projection(projection);
+    projection.rotate([REGIONS[region].rotate, 0]);
     projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], fitTarget());
     drawBase();
   }
+  setRotation(REGIONS[region].rotate);
   activeView = () => showRegion(region, { instant: true });
   applyView(regionBounds(region), { pad: .02, ...opts });
 }
@@ -735,7 +824,7 @@ function focusBounds(item, minDegrees) {
     geo = { type: "MultiPolygon", coordinates: geo.coordinates.filter((_, i) => areas[i] >= biggest * .15) };
   }
   const [[x0, y0], [x1, y1]] = geoPath.bounds(geo);
-  const min = minDegrees * (item.world === "middle" ? .1 : 1) * viewW / 360 * (projection.scale() / (viewW / 6.2));
+  const min = minDegrees * ({ middle: .1, usa: .35 }[item.world] || 1) * viewW / 360 * (projection.scale() / (viewW / 6.2));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const hw = Math.max((x1 - x0) / 2, min / 2), hh = Math.max((y1 - y0) / 2, min / 2);
   return [[cx - hw, cy - hh], [cx + hw, cy + hh]];
@@ -874,7 +963,7 @@ function setupDock() {
   const s = S();
   setDock(`<div class="wrap setup">
     <div class="brand">
-      <h1>Blank Map</h1>
+      <h1>Mapolo</h1>
       <p>${W("intro")}</p>
       <small>${W("credit")}</small>
     </div>
@@ -972,7 +1061,7 @@ function questionDock() {
   const flag = q.item.flag ? `<img class="flag-q" src="${q.item.flag}" alt="${s.flagAlt}">` : "";
   if (q.mode === "find") {
     const countryLike = isCountryLike(q.item);
-    const hint = countryLike ? s.hintCountry : s.hintPin;
+    const hint = countryLike ? W("hintCountry") : s.hintPin;
     const title = q.item.flag ? s.findFlag : fill(s.find, { name: `<span class="target">${esc(label(q.item))}</span>` });
     setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
       <div>${flag}<h2>${title}</h2><p>${W("one")[q.item.kind]}. ${hint}</p></div>
@@ -1038,7 +1127,7 @@ function feedbackText(q) {
   const name = r.hit && r.hit.item ? label(r.hit.item) : null;
   return {
     skipped: s.skipped + ".",
-    right: s.rightCountry,
+    right: W("rightCountry"),
     chose: name ? fill(s.chose, { name, km }) : fill(s.choseArea, { km }),
     near: fill(s.pinNear, { km }),
     far: fill(s.pinFar, { km }),
@@ -1505,7 +1594,7 @@ const music = (() => {
   return {
     /* Plays the region's song, from the top if that's a change. */
     begin(region) {
-      const next = SONGS[region] || SONGS.World;
+      const next = SONGS[region] || (REGIONS[region]?.world === "usa" ? SONGS["North America"] : SONGS.World);
       if (next !== song) {
         song = next;
         step = 0;
@@ -1695,7 +1784,7 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { account, middle, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks, factsFor };
+window.blankMap = { account, middle, usa, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, get projection() { return projection; }, svg, music, fireworks, factsFor };
 applyLanguage();
 layout();
 renderSetup();

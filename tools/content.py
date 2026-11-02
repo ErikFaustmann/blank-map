@@ -1,4 +1,4 @@
-# Curated quiz content for Blank Map. build_data.py joins this with Natural Earth geometry.
+# Curated quiz content for Mapolo. build_data.py joins this with Natural Earth geometry.
 
 # Display name | Natural Earth name ('' = same) | capital | country aliases | capital aliases
 COUNTRIES = {
