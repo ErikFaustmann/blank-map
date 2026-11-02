@@ -89,6 +89,16 @@ python tools/build_data.py path/to/downloads
 
 US state borders: US Census Bureau, public domain, via [us-atlas](https://github.com/topojson/us-atlas). On the USA map, Alaska and Hawaii are moved into boxes below the mainland and Alaska is shrunk, so distances there are not to scale.
 
+## Pictures
+
+The fact popups show one photo per place from [Wikimedia Commons](https://commons.wikimedia.org/), each under CC0, CC BY, CC BY-SA or in the public domain, with its photographer and license shown underneath. The game stores only each photo's address and credit, so players' browsers load the photos from Wikimedia. To pick them again, run:
+
+```bash
+python tools/build_images.py
+```
+
+It looks each place up on Wikipedia and Wikidata, caches the answers in `tools/.image-cache/`, and writes `images.js`. Middle-earth gets small drawings instead, made in `index.html`.
+
 ## Middle-earth
 
 Middle-earth was created by J.R.R. Tolkien. The map in this game is drawn by hand and only roughly follows his. The facts are written for this game. It is an unofficial fan work, not endorsed by the Tolkien Estate or Middle-earth Enterprises, and the names and setting remain theirs. Check the rights holders' fan policies before publishing it.

@@ -29,6 +29,20 @@ window.BLANK_MAP_MIDDLE = {
     [[82, 6], [86, 7]],
     [[41, 17], [42, 22]],
   ],
+  /* Which little drawing goes with each place in the fact popup. Anything not listed gets one for its kind. */
+  art: {
+    tower: ["Barad-dûr", "Isengard", "Minas Tirith", "Minas Morgul", "Dol Guldur", "Angmar", "Gondor"],
+    volcano: ["Mount Doom", "Mordor"],
+    forest: ["Mirkwood", "Fangorn", "Lothlórien", "Old Forest", "Caras Galadhon", "Ithilien"],
+    hobbit: ["The Shire", "Hobbiton", "Michel Delving", "Bree", "Bree-land"],
+    ship: ["Grey Havens", "Lindon", "Pelargir", "Dol Amroth", "Lake-town"],
+    hall: ["Rohan", "Edoras", "Helm's Deep", "Dale", "Dunland"],
+    marsh: ["Dead Marshes"],
+    gate: ["Moria", "Erebor"],
+    ruins: ["Osgiliath", "Fornost", "Tharbad", "Arnor", "Weathertop", "Lone-lands", "Eregion", "Minhiriath", "Enedwaith"],
+    peaks: ["Iron Hills", "Emyn Muil", "Ettenmoors", "Forodwaith"],
+    river: ["Vales of Anduin"],
+  },
   areas: {
     Eriador: [8, 0, 57, 56],
     Rhovanion: [52, 0, 100, 45],

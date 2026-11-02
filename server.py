@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent
 STATIC = {"/": "index.html", "/index.html": "index.html", "/data.js": "data.js", "/facts.js": "facts.js", "/quiz.js": "quiz.js",
-          "/middleearth.js": "middleearth.js", "/usa.js": "usa.js"}
+          "/middleearth.js": "middleearth.js", "/usa.js": "usa.js", "/images.js": "images.js"}
 FLAG_PATH = re.compile(r"/flags/[a-z]{2}\.svg")
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 

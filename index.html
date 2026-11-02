@@ -154,6 +154,15 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 #fact-pop[hidden] { display: none; }
 #fact-pop h3 { margin: 0 0 4px; font: 600 20px/1.1 var(--display); }
 #fact-pop ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.fact-photo { margin: 0 0 8px; }
+.fact-photo img { display: block; width: 100%; height: auto; max-height: 190px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--line); }
+.fact-photo figcaption { margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--muted); }
+/* Middle-earth vignettes, drawn in the map's own colours so they follow light and dark mode. */
+.fact-art { display: block; width: 100%; height: auto; margin: 0 0 8px; background: var(--sea); border: 1px solid var(--line); }
+.fact-art * { stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fact-art .g { fill: var(--land); } .fact-art .d { fill: var(--panel-2); } .fact-art .s { fill: var(--panel); }
+.fact-art .k { fill: #0b1a22; } .fact-art .w { fill: var(--river); } .fact-art .r { fill: var(--bad); }
+.fact-art .y { fill: var(--ok); } .fact-art .t { fill: var(--good); } .fact-art .n { fill: none; }
 
 .flag-q { display: block; height: 84px; width: auto; margin-bottom: 8px; border: 1px solid var(--line); }
 .flag-small { height: 24px; width: auto; margin-right: 8px; vertical-align: -3px; border: 1px solid var(--line); }
@@ -239,6 +248,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="quiz.js"></script>
 <script src="middleearth.js"></script>
 <script src="usa.js"></script>
+<script src="images.js"></script>
 <script>
 "use strict";
 const DATA = window.BLANK_MAP_DATA;
@@ -328,6 +338,7 @@ const STRINGS = {
     ranks: ["Uncharted waters", "Coastal pilot", "Ocean navigator", "Master cartographer"],
     quit: "Quit", ended: "Round ended after {n} of {total} questions.",
     musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music", volumeLabel: "Music volume",
+    photoBy: "Photo: {by}, {license}, via Wikimedia Commons.",
     factsHint: "Point at or tap the name for more facts.", legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
     login: "Log in", register: "Create profile", logout: "Log out", back: "Back", profile: "Your profile",
@@ -386,6 +397,7 @@ const STRINGS = {
     ranks: ["Unbekannte Gewässer", "Küstengewässer", "Hochseetauglich", "Meisterhafte Kartografie"],
     quit: "Beenden", ended: "Runde nach {n} von {total} Fragen beendet.",
     musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik", volumeLabel: "Musiklautstärke",
+    photoBy: "Foto: {by}, {license}, über Wikimedia Commons.",
     factsHint: "Zeig auf den Namen oder tippe ihn an, um mehr Fakten zu sehen.", legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
     login: "Anmelden", register: "Profil erstellen", logout: "Abmelden", back: "Zurück", profile: "Dein Profil",
@@ -932,11 +944,59 @@ function factsFor(item) {
   const row = (window.BLANK_MAP_FACTS || {})[item.kind === "flag" ? "country" : item.kind]?.[item.names.en];
   return row ? row[lang === "de" ? 1 : 0] : [];
 }
+/* ---------- Pictures ---------- */
+/* Earth and USA places show a freely licensed Wikimedia photo, with its credit. The game only knows the address,
+   so the browser loads the picture from Wikimedia, and a picture that fails to load simply disappears. */
+function photoFor(item) {
+  return (window.BLANK_MAP_IMAGES || {})[item.world]?.[item.kind === "flag" ? "country" : item.kind]?.[item.names.en] || null;
+}
+/* Middle-earth gets small drawings instead: real photos would be film stills or fan art. */
+const ME_ART = (() => {
+  const ground = `<path class="g" d="M-2 96C60 84 120 100 180 92S300 86 362 96V122H-2Z"/>`;
+  const tree = (x, s = 1) => `<path class="n" d="M${x} 96V${96 - 8 * s}"/><path class="t" d="M${x - 13 * s} ${96 - 8 * s}L${x} ${96 - 52 * s}L${x + 13 * s} ${96 - 8 * s}Z"/>`;
+  const round = (x, s = 1) => `<path class="n" d="M${x} 96V${96 - 14 * s}"/><circle class="t" cx="${x}" cy="${96 - 28 * s}" r="${16 * s}"/>`;
+  const reed = x => `<path class="n" d="M${x} 104Q${x - 2} 92 ${x - 5} 84M${x + 4} 104Q${x + 5} 94 ${x + 9} 88"/>`;
+  return {
+    tower: `${ground}<path class="d" d="M164 94V44H158V36H202V44H196V94Z"/><path class="d" d="M156 37V27H163V31H170V27H177V31H184V27H191V31H198V27H204V37Z"/>
+      <path class="d" d="M170 27L180 6L190 27Z"/><path class="k" d="M175 62V54A5 5 0 0 1 185 54V62Z"/><path class="k" d="M172 94V82A8 8 0 0 1 188 82V94Z"/>`,
+    volcano: `${ground}<path class="d" d="M80 96L156 34Q180 26 204 34L280 96Z"/><path class="r" d="M168 33Q182 41 194 33L198 52Q190 64 200 82Q186 72 183 58Q176 68 166 74Q176 54 168 33Z"/>
+      <circle class="d" cx="186" cy="20" r="7"/><circle class="d" cx="201" cy="12" r="9"/><circle class="d" cx="222" cy="8" r="11"/>`,
+    peaks: `${ground}<path class="d" d="M40 96L110 30L180 96Z"/><path class="d" d="M140 96L220 18L300 96Z"/><path class="d" d="M250 96L300 50L350 96Z"/>
+      <path class="s" d="M98 41L110 30L122 41L115 47L110 42L104 47Z"/><path class="s" d="M206 32L220 18L234 32L227 39L220 33L213 39Z"/>`,
+    forest: `${ground}${[30, 72, 250, 330].map(x => tree(x, .8)).join("")}${round(118, .9)}${tree(160, 1.1)}${round(206)}${tree(290)}`,
+    river: `${ground}<path class="w" d="M-2 100C80 88 120 112 190 101S300 90 362 97V109C300 103 250 117 190 113S80 101 -2 113Z"/>${reed(60)}${reed(250)}${tree(320, .6)}${round(40, .5)}`,
+    hobbit: `${ground}<path class="g" d="M60 96C90 38 270 38 300 96Z"/><circle class="t" cx="180" cy="80" r="16"/><circle class="y" cx="180" cy="80" r="2.5"/>
+      <circle class="y" cx="132" cy="78" r="8"/><circle class="y" cx="228" cy="78" r="8"/><path class="d" d="M244 56V40H254V62"/><path class="n" d="M20 96V84M10 88H50M40 96V84M310 96V84M300 88H350M330 96V84"/>`,
+    ship: `<path class="w" d="M-2 92C40 86 80 98 120 92S200 86 240 92S320 98 362 92V122H-2Z"/><path class="d" d="M108 88Q180 108 252 86L240 78H122Z"/>
+      <path class="n" d="M252 86Q272 60 260 48Q254 44 249 50"/><path class="n" d="M184 78V18"/><path class="s" d="M187 22Q234 44 187 72Z"/><path class="n" d="M40 108Q52 104 64 108M290 106Q302 102 314 106"/>`,
+    hall: `${ground}<path class="g" d="M70 96C110 58 250 58 290 96Z"/><path class="d" d="M144 74H216V94H144Z"/><path class="y" d="M134 76L180 46L226 76Z"/>
+      <path class="n" d="M180 46L172 35M180 46L188 35"/><path class="k" d="M172 94V82H188V94Z"/><path class="n" d="M84 96V86M276 96V86"/>`,
+    marsh: `${ground}<ellipse class="w" cx="80" cy="103" rx="52" ry="7"/><ellipse class="w" cx="230" cy="100" rx="70" ry="8"/><ellipse class="w" cx="330" cy="108" rx="30" ry="5"/>
+      ${[30, 120, 160, 190, 290, 345].map(reed).join("")}<circle class="y" cx="70" cy="101" r="3"/><circle class="y" cx="214" cy="98" r="3"/><circle class="y" cx="250" cy="101" r="3"/>`,
+    gate: `${ground}<path class="d" d="M20 96L120 20L200 50L262 16L350 96Z"/><path class="n" d="M150 96V70A30 30 0 0 1 210 70V96"/><path class="k" d="M160 96V70A20 20 0 0 1 200 70V96Z"/>
+      <circle class="s" cx="180" cy="60" r="3"/><path class="n" d="M168 70H192"/>`,
+    ruins: `${ground}<path class="d" d="M70 94V50L78 44L86 52V94Z"/><path class="d" d="M120 94V60H138V94Z"/><path class="d" d="M188 94V40L196 34L204 38V94Z"/>
+      <path class="n" d="M196 52A26 26 0 0 1 248 52"/><path class="d" d="M240 94V52H256V64L250 70V94Z"/><path class="d" d="M290 94L300 82H318L326 94Z"/>`,
+    plains: `<path class="g" d="M-2 78C80 66 160 84 240 74S320 68 362 76V100H-2Z"/>${ground}<path class="n" d="M150 122C164 106 200 98 236 92"/><circle class="y" cx="300" cy="30" r="12"/>
+      ${[40, 330].map(x => round(x, .6)).join("")}`,
+  };
+})();
+const ME_ART_FOR = Object.fromEntries(Object.entries(MIDDLE.art).flatMap(([art, names]) => names.map(n => [n, art])));
+function pictureFor(item) {
+  if (item.world === "middle") {
+    const art = ME_ART_FOR[item.names.en] || { country: "plains", capital: "ruins", mountain: "peaks", river: "river" }[item.kind];
+    return `<svg class="fact-art" viewBox="0 0 360 120" aria-hidden="true">${ME_ART[art]}</svg>`;
+  }
+  const photo = photoFor(item);
+  if (!photo) return "";
+  return `<figure class="fact-photo"><img src="${esc(photo.src)}" width="${photo.w}" height="${photo.h}" alt="" onerror="this.parentNode.remove()">
+    <figcaption>${esc(fill(S().photoBy, { by: photo.by, license: photo.license }))}</figcaption></figure>`;
+}
 function hideFacts() { factPop.hidden = true; }
 function showFacts(trigger) {
   const item = game.round[+trigger.dataset.facts].item, facts = factsFor(item);
   if (!facts.length) return;
-  factPop.innerHTML = `<h3>${esc(label(item))}</h3><ul>${facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>`;
+  factPop.innerHTML = `${pictureFor(item)}<h3>${esc(label(item))}</h3><ul>${facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>`;
   factPop.hidden = false;
   const box = trigger.getBoundingClientRect();
   factPop.style.left = `${clamp(box.left, 16, Math.max(16, innerWidth - factPop.offsetWidth - 16))}px`;
@@ -1165,6 +1225,9 @@ function finishAnswer(q, points, result) {
   svg.classed("placing", false);
   feedbackDock();
   if (points === 100) fireworks();
+  /* Fetch the picture now, so it is ready when the player points at the name. */
+  const photo = photoFor(q.item);
+  if (photo) new Image().src = photo.src;
 }
 /* A coloured-in neighbour is a wrong country, so it earns less than a hit. Tiny countries stay forgiving,
    because at world zoom the click almost always lands on the country around them. */
@@ -1784,7 +1847,7 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { account, middle, usa, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, get projection() { return projection; }, svg, music, fireworks, factsFor };
+window.blankMap = { pictureFor, account, middle, usa, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, get projection() { return projection; }, svg, music, fireworks, factsFor };
 applyLanguage();
 layout();
 renderSetup();
