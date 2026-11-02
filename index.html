@@ -37,6 +37,7 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 #map.placing { cursor: crosshair; }
 #map:active { cursor: grabbing; }
+#map.middle { background: var(--panel-2); }
 #map path { vector-effect: non-scaling-stroke; }
 .sphere { fill: var(--sea); stroke: var(--grid); stroke-width: 1; }
 .graticule { fill: none; stroke: var(--grid); stroke-width: .6; }
@@ -166,6 +167,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 .profile-head h2 { font: 700 40px/1 var(--display); margin: 0; overflow-wrap: anywhere; }
 .profile-head h2 small { display: block; margin-top: 4px; font: 500 16px/1.2 var(--body); color: var(--muted); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px 32px; }
+.world-head { margin: 4px 0 0; font: 600 22px/1.1 var(--display); }
 .stats h3, .log-head { margin: 0 0 6px; font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .stat { display: grid; grid-template-columns: 110px minmax(40px, 1fr) 44px; gap: 10px; align-items: center; padding: 4px 0; }
 .stat-track { height: 8px; background: var(--panel-2); border-radius: 0 4px 4px 0; }
@@ -233,6 +235,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="data.js"></script>
 <script src="facts.js"></script>
 <script src="quiz.js"></script>
+<script src="middleearth.js"></script>
 <script>
 "use strict";
 const DATA = window.BLANK_MAP_DATA;
@@ -251,6 +254,19 @@ const REGIONS = {
   "South America": { rotate: 0, box: [-85, -57, -32, 14] },
   Oceania: { rotate: -165, box: [112, -48, 208, 23] },
 };
+for (const r of Object.values(REGIONS)) r.world = "earth";
+REGIONS.World.all = true;
+/* Middle-earth sits in an empty patch of the globe near 0°, 0°, scaled so its distances come out right in km.
+   That close to the equator the map barely bends, and all the scoring and zooming work unchanged. */
+const MIDDLE = window.BLANK_MAP_MIDDLE;
+const ME_DEGREES = MIDDLE.milesPerUnit * 1.609344 / (Math.PI * EARTH_KM / 180);
+const meLonLat = ([x, y]) => [(x - MIDDLE.size[0] / 2) * ME_DEGREES, (MIDDLE.size[1] / 2 - y) * ME_DEGREES];
+const meBox = ([x0, y0, x1, y1]) => [...meLonLat([x0, y1]), ...meLonLat([x1, y0])];
+REGIONS["Middle-earth"] = { world: "middle", all: true, rotate: 0, box: meBox([0, 0, ...MIDDLE.size]) };
+for (const [name, box] of Object.entries(MIDDLE.areas)) REGIONS[name] = { world: "middle", rotate: 0, box: meBox(box) };
+const ROOTS = { earth: "World", middle: "Middle-earth" };
+function currentWorld() { return REGIONS[settings.region].world; }
+const kindsFor = world => KINDS.filter(k => world === "earth" || k !== "flag");
 
 /* ---------- Language ---------- */
 const STRINGS = {
@@ -260,7 +276,16 @@ const STRINGS = {
     one: { country: "Country", capital: "Capital city", flag: "Flag", mountain: "Mountain", river: "River" },
     findFlag: "Find the country with this flag", flagAlt: "The flag to identify",
     nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river" },
-    regions: { World: "World", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica" },
+    regions: { World: "World", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
+      "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South" },
+    legendMap: "Map", worlds: { earth: "Earth", middle: "Middle-earth" }, meRiver: "About {km} km long.",
+    middle: {
+      kinds: { country: "Lands", capital: "Places", mountain: "Mountains", river: "Rivers" },
+      one: { country: "Land", capital: "Place", mountain: "Mountain", river: "River" },
+      nameThis: { country: "Name this land", capital: "Name this place", mountain: "Name this mountain", river: "Name this river" },
+      intro: "Name the lands, places, mountains and rivers of Middle-earth, or find them on an unlabelled map.",
+      credit: "Middle-earth was created by J.R.R. Tolkien. This map is drawn by hand for the game and only roughly follows his. An unofficial fan work, not endorsed by the Tolkien Estate.",
+    },
     types: { both: "Both", name: "Name it", find: "Find it" },
     intro: "Name places on an unlabelled world map, or find them from their name.",
     credit: "Map data: Natural Earth, public domain. Countries are the UN members plus Kosovo, Palestine, Taiwan and Vatican City. Borders are drawn for play and take no political position. Flags: flag-icons, MIT license.",
@@ -300,7 +325,16 @@ const STRINGS = {
     one: { country: "Land", capital: "Hauptstadt", flag: "Flagge", mountain: "Berg", river: "Fluss" },
     findFlag: "Finde das Land mit dieser Flagge", flagAlt: "Die gesuchte Flagge",
     nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
-    regions: { World: "Welt", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika" },
+    regions: { World: "Welt", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
+      "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden" },
+    legendMap: "Karte", worlds: { earth: "Erde", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
+    middle: {
+      kinds: { country: "Länder", capital: "Orte", mountain: "Berge", river: "Flüsse" },
+      one: { country: "Land", capital: "Ort", mountain: "Berg", river: "Fluss" },
+      nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt dieser Ort?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
+      intro: "Benenne die Länder, Orte, Berge und Flüsse Mittelerdes oder finde sie auf einer unbeschrifteten Karte.",
+      credit: "Mittelerde wurde von J.R.R. Tolkien erschaffen. Diese Karte ist für das Spiel von Hand gezeichnet und folgt seiner nur grob. Ein inoffizielles Fanprojekt, nicht vom Tolkien Estate unterstützt.",
+    },
     types: { both: "Beides", name: "Benennen", find: "Finden" },
     intro: "Benenne Orte auf einer unbeschrifteten Weltkarte oder finde sie anhand ihres Namens.",
     credit: "Kartendaten: Natural Earth, gemeinfrei. Länder sind die UN-Mitglieder sowie Kosovo, Palästina, Taiwan und die Vatikanstadt. Die Grenzen dienen nur dem Spiel und sind keine politische Aussage. Flaggen: flag-icons, MIT-Lizenz.",
@@ -344,6 +378,8 @@ const S = () => STRINGS[lang];
 const fill = (text, vars = {}) => text.replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 const num = n => Math.round(n).toLocaleString(lang);
 const label = item => item.names[lang];
+/* Middle-earth has its own words for a few things, like lands instead of countries. */
+const W = (key, world = currentWorld()) => (world === "middle" && S().middle[key]) || S()[key];
 
 /* ---------- Content ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -414,16 +450,92 @@ for (const item of ITEMS) {
   if (item.kind === "mountain" || item.kind === "river") item.tier = tierOf(item.kind, item.names.en, false);
 }
 
+for (const item of ITEMS) item.world = "earth";
+
+/* ---------- Middle-earth ---------- */
+/* The lands are worked out from the hand-drawn coast and seed points. Each spot of land goes to the land with the
+   nearest seed, and a gentle wobble keeps the borders from looking ruled. Every value below is a margin that is
+   positive inside and zero on the edge, so neighbouring lands share exactly the same border line. */
+const middle = (() => {
+  const STEP = .25, nx = MIDDLE.size[0] / STEP + 1, ny = MIDDLE.size[1] / STEP + 1, cells = nx * ny;
+  const wobble = (x, y, a) => [x + a * (Math.sin(y * .7 + 1.3) + .55 * Math.sin(y * 1.9 + x * .4)), y + a * (Math.sin(x * .6 + .4) + .55 * Math.sin(x * 1.7 - y * .5))];
+  function signedDistance(ring, x, y) {
+    let inside = false, best = Infinity;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [x1, y1] = ring[i], [x2, y2] = ring[j];
+      if ((y1 > y) !== (y2 > y) && x < (x2 - x1) * (y - y1) / (y2 - y1) + x1) inside = !inside;
+      const dx = x2 - x1, dy = y2 - y1, t = clamp(((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+      best = Math.min(best, Math.hypot(x - x1 - t * dx, y - y1 - t * dy));
+    }
+    return inside ? best : -best;
+  }
+  const land = new Float64Array(cells), seedDistance = MIDDLE.lands.map(() => new Float64Array(cells));
+  const nearest = new Float64Array(cells).fill(Infinity), second = new Float64Array(cells).fill(Infinity);
+  for (let j = 0, k = 0; j < ny; j++) for (let i = 0; i < nx; i++, k++) {
+    const [cx, cy] = wobble(i * STEP, j * STEP, .3);
+    land[k] = MIDDLE.lakes.reduce((v, lake) => Math.min(v, -signedDistance(lake, cx, cy)), signedDistance(MIDDLE.coast, cx, cy));
+    const [wx, wy] = wobble(i * STEP, j * STEP, .7);
+    MIDDLE.lands.forEach((l, n) => {
+      const d = Math.min(...l.seeds.map(([sx, sy]) => Math.hypot(wx - sx, wy - sy)));
+      seedDistance[n][k] = d;
+      if (d < nearest[k]) { second[k] = nearest[k]; nearest[k] = d; } else if (d < second[k]) second[k] = d;
+    });
+  }
+  /* d3.contours treats each value as a pixel, so a value's position is the middle of its pixel. */
+  const toLonLat = ([gx, gy]) => meLonLat([(gx - .5) * STEP, (gy - .5) * STEP]);
+  function outline(values) {
+    const [shape] = d3.contours().size([nx, ny]).thresholds([0])(values);
+    return { type: "MultiPolygon", coordinates: shape.coordinates.map(polygon => {
+      const rings = polygon.map(ring => ring.map(toLonLat));
+      return d3.geoArea({ type: "Polygon", coordinates: rings }) > 2 * Math.PI ? rings.map(r => r.slice().reverse()) : rings;
+    }) };
+  }
+  const realm = n => Float64Array.from(seedDistance[n], (d, k) => d === nearest[k] ? second[k] - d : nearest[k] - d);
+  const lands = MIDDLE.lands.map((l, n) => {
+    const own = realm(n);
+    return { ...l, geo: outline(own.map((v, k) => Math.min(v, land[k]))), own };
+  });
+  /* Borders are each land's full outline, clipped to the land, so the coast keeps its own line. */
+  const borders = { type: "MultiPolygon", coordinates: lands.flatMap(l => outline(l.own).coordinates) };
+  /* The frame needs many points per side, or its sides would follow the curve of the globe. */
+  const [mw, mh] = MIDDLE.size, side = d3.range(0, 1, .05);
+  const corners = [...side.map(t => [t * mw, 0]), ...side.map(t => [mw, t * mh]), ...side.map(t => [mw * (1 - t), mh]), ...side.map(t => [0, mh * (1 - t)]), [0, 0]].map(meLonLat);
+  const frameRing = d3.geoArea({ type: "Polygon", coordinates: [corners] }) > 2 * Math.PI ? corners.reverse() : corners;
+  /* Ranges are drawn as a row of small peaks, one every 30 miles or so. */
+  const rangePeaks = MIDDLE.ranges.flatMap(line => line.slice(1).flatMap((b, i) => {
+    const a = line[i], steps = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
+    return d3.range(i ? 1 : 0, steps + 1).map(s => meLonLat([a[0] + (b[0] - a[0]) * s / steps, a[1] + (b[1] - a[1]) * s / steps]));
+  }));
+  return { land: outline(land), lands, borders, frame: { type: "Polygon", coordinates: [frameRing] }, rangePeaks };
+})();
+for (const l of middle.lands.filter(l => l.quiz !== false)) {
+  const size = Math.sqrt(areaKm2(l.geo));
+  ITEMS.push({ world: "middle", kind: "country", names: { en: l.en, de: l.de }, aliases: l.aliases || [], region: l.area, tier: l.tier, facts: l.facts,
+    geo: l.geo, size, full: 20, zero: clamp(1.2 * size, 150, 600),
+    fact: () => `${S().regions[l.area]}. ${fill(S().about, { area: roundArea(size * size) })}` });
+}
+const middleItem = (kind, p, geo, full, zero, fact) => ITEMS.push({ world: "middle", kind, names: { en: p.en, de: p.de }, aliases: p.aliases || [],
+  region: p.area, tier: p.tier, facts: p.facts, geo, full, zero, fact: fact || (() => `${S().regions[p.area]}.`) });
+for (const p of MIDDLE.places) middleItem("capital", p, { type: "Point", coordinates: meLonLat(p.at) }, 25, 350);
+for (const m of MIDDLE.mountains) middleItem("mountain", m, { type: "Point", coordinates: meLonLat(m.at) }, 30, 450);
+for (const r of MIDDLE.rivers) {
+  const geo = { type: "MultiLineString", coordinates: [r.line.map(meLonLat)] };
+  const km = d3.geoLength(geo) * EARTH_KM;
+  middleItem("river", r, geo, 20, clamp(km * .4, 150, 600), () => fill(S().meRiver, { km: num(Math.round(km / 10) * 10) }));
+}
+
 /* Everything a click can colour in: quiz countries, plus territories such as Greenland that aren't asked about. */
 const claimed = new Set(DATA.countries.flatMap(c => [c.shape, ...c.extra]));
 const quizCountries = ITEMS.filter(i => i.kind === "country");
 const HITS = [
-  ...quizCountries.map(item => ({ item, geo: item.geo })),
-  ...allFeatures.filter(f => !claimed.has(f.properties.name)).map(f => ({ item: null, geo: f })),
+  ...quizCountries.map(item => ({ item, geo: item.geo, world: item.world })),
+  ...allFeatures.filter(f => !claimed.has(f.properties.name)).map(f => ({ item: null, geo: f, world: "earth" })),
+  ...middle.lands.filter(l => l.quiz === false).map(l => ({ item: null, geo: l.geo, world: "middle" })),
 ].map(h => ({ ...h, bounds: d3.geoBounds(h.geo) }));
+/* Middle-earth shares its coordinates with a patch of real ocean and Africa, so only the current world counts. */
 function hitAt(lonLat) {
-  const [lon, lat] = lonLat;
-  return HITS.find(({ bounds: [[w, s], [e, n]], geo }) =>
+  const [lon, lat] = lonLat, world = currentWorld();
+  return HITS.find(({ bounds: [[w, s], [e, n]], geo, world: w2 }) => w2 === world &&
     lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e) && d3.geoContains(geo, lonLat)) || null;
 }
 
@@ -481,7 +593,7 @@ function pointsFor(item, km) {
 }
 const band = p => p >= 80 ? "good" : p >= 40 ? "ok" : "bad";
 function inPool(item, kind, region, level) {
-  return item.kind === kind && (region === "World" || item.region === region) && LEVELS[level].includes(item.tier);
+  return item.kind === kind && item.world === REGIONS[region].world && (REGIONS[region].all || item.region === region) && LEVELS[level].includes(item.tier);
 }
 /* Each pool is popped from the end, so the level's preferred tier goes last. */
 function pickRound(kinds, region, type, level) {
@@ -515,13 +627,15 @@ const base = {
   land: zoomLayer.append("path").attr("class", "land"),
   borders: zoomLayer.append("path").attr("class", "borders"),
 };
+const landClip = svg.append("defs").append("clipPath").attr("id", "middle-land").append("path");
 const guessedLayer = zoomLayer.append("g");
 const reliefRivers = zoomLayer.append("path").attr("class", "relief-rivers");
 const reliefPeaks = zoomLayer.append("g");
 const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
 const overlay = zoomLayer.append("g");
 const markers = zoomLayer.append("g");
-let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null;
+let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null, drawnWorld = null;
+const fitTarget = () => currentWorld() === "middle" ? middle.frame : { type: "Sphere" };
 
 const sizedToScreen = d => `translate(${d.x},${d.y}) scale(${1 / currentK})`;
 /* A click now answers at once, so a hand that shifts by a pixel or two must still count as a click. */
@@ -534,19 +648,25 @@ const zoom = d3.zoom().scaleExtent([1, 80]).clickDistance(4).on("zoom", e => {
 svg.call(zoom).on("dblclick.zoom", null);
 
 function drawBase() {
-  base.sphere.attr("d", geoPath({ type: "Sphere" }));
-  base.graticule.attr("d", geoPath(graticule));
-  base.land.attr("d", geoPath({ type: "FeatureCollection", features: allFeatures }));
-  base.borders.attr("d", geoPath(borders));
+  const inMiddle = currentWorld() === "middle";
+  drawnWorld = currentWorld();
+  svg.classed("middle", inMiddle);
+  base.sphere.attr("d", geoPath(fitTarget()));
+  base.graticule.attr("d", inMiddle ? null : geoPath(graticule));
+  base.land.attr("d", geoPath(inMiddle ? middle.land : { type: "FeatureCollection", features: allFeatures }));
+  landClip.attr("d", inMiddle ? geoPath(middle.land) : null);
+  base.borders.attr("d", geoPath(inMiddle ? middle.borders : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
   drawRelief();
   redrawGuessed();
   redrawPicks();
 }
 /* The big rivers and peaks stay faintly visible as landmarks, whatever the round is asking about. */
 function drawRelief() {
-  reliefRivers.attr("d", geoPath({ type: "GeometryCollection", geometries: ITEMS.filter(i => i.kind === "river").map(i => i.geo) }));
-  const peaks = ITEMS.filter(i => i.kind === "mountain").map(i => {
-    const [x, y] = projection(i.geo.coordinates);
+  const world = currentWorld(), here = ITEMS.filter(i => i.world === world);
+  reliefRivers.attr("d", geoPath({ type: "GeometryCollection", geometries: here.filter(i => i.kind === "river").map(i => i.geo) }));
+  const points = [...here.filter(i => i.kind === "mountain").map(i => i.geo.coordinates), ...(world === "middle" ? middle.rangePeaks : [])];
+  const peaks = points.map(p => {
+    const [x, y] = projection(p);
     return { x, y };
   });
   reliefPeaks.selectAll("path").data(peaks).join("path").attr("class", "relief-peak").attr("d", "M0,-4.5L4.5,3L-4.5,3Z").attr("transform", sizedToScreen);
@@ -569,7 +689,7 @@ function layout() {
   if (!box.width || !box.height || (box.width === viewW && box.height === viewH)) return false;
   viewW = box.width; viewH = box.height;
   svg.attr("viewBox", `0 0 ${viewW} ${viewH}`);
-  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], { type: "Sphere" });
+  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], fitTarget());
   zoom.extent([[0, 0], [viewW, viewH]]).translateExtent([[-viewW * .4, -viewH * .4], [viewW * 1.4, viewH * 1.4]]);
   drawBase();
   return true;
@@ -577,7 +697,7 @@ function layout() {
 function setRotation(lon) {
   if (projection.rotate()[0] === lon) return;
   projection.rotate([lon, 0]);
-  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], { type: "Sphere" });
+  projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], fitTarget());
   drawBase();
 }
 function applyView(bounds, { pad = .08, maxK = 80, instant = false } = {}) {
@@ -590,7 +710,7 @@ function applyView(bounds, { pad = .08, maxK = 80, instant = false } = {}) {
 }
 function regionBounds(region) {
   const box = REGIONS[region].box;
-  if (!box) return geoPath.bounds({ type: "Sphere" });
+  if (!box) return geoPath.bounds(fitTarget());
   const [w, s, e, n] = box;
   const pts = [];
   for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) pts.push(projection([w + (e - w) * i / 8, s + (n - s) * j / 8]));
@@ -599,6 +719,10 @@ function regionBounds(region) {
 function showRegion(region, opts) {
   homeRegion = region;
   setRotation(REGIONS[region].rotate);
+  if (drawnWorld !== REGIONS[region].world && viewW) {
+    projection.fitExtent([[6, 6], [viewW - 6, viewH - 6]], fitTarget());
+    drawBase();
+  }
   activeView = () => showRegion(region, { instant: true });
   applyView(regionBounds(region), { pad: .02, ...opts });
 }
@@ -611,7 +735,7 @@ function focusBounds(item, minDegrees) {
     geo = { type: "MultiPolygon", coordinates: geo.coordinates.filter((_, i) => areas[i] >= biggest * .15) };
   }
   const [[x0, y0], [x1, y1]] = geoPath.bounds(geo);
-  const min = minDegrees * viewW / 360 * (projection.scale() / (viewW / 6.2));
+  const min = minDegrees * (item.world === "middle" ? .1 : 1) * viewW / 360 * (projection.scale() / (viewW / 6.2));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const hw = Math.max((x1 - x0) / 2, min / 2), hh = Math.max((y1 - y0) / 2, min / 2);
   return [[cx - hw, cy - hh], [cx + hw, cy + hh]];
@@ -694,7 +818,7 @@ function formatCoord(v, pos, neg) {
 const readout = document.getElementById("readout");
 svg.on("pointermove", e => {
   const ll = eventLonLat(e);
-  readout.textContent = ll ? `${formatCoord(ll[1], "N", "S")}  ${formatCoord(ll[0], "E", "W")}` : "";
+  readout.textContent = ll && currentWorld() === "earth" ? `${formatCoord(ll[1], "N", "S")}  ${formatCoord(ll[0], "E", "W")}` : "";
   if (e.pointerType === "mouse" && e.buttons === 0) previewCountry(ll);
 });
 svg.on("pointerleave", () => { readout.textContent = ""; previewCountry(null); });
@@ -715,6 +839,7 @@ const dock = document.getElementById("dock");
 const factPop = document.getElementById("fact-pop");
 /* Each place has [English facts, German facts], keyed by its English name. */
 function factsFor(item) {
+  if (item.facts) return item.facts[lang === "de" ? 1 : 0];
   const row = (window.BLANK_MAP_FACTS || {})[item.kind === "flag" ? "country" : item.kind]?.[item.names.en];
   return row ? row[lang === "de" ? 1 : 0] : [];
 }
@@ -750,34 +875,46 @@ function setupDock() {
   setDock(`<div class="wrap setup">
     <div class="brand">
       <h1>Blank Map</h1>
-      <p>${s.intro}</p>
-      <small>${s.credit}</small>
+      <p>${W("intro")}</p>
+      <small>${W("credit")}</small>
     </div>
     <form class="options" id="setup-form">
+      <fieldset><legend>${s.legendMap}</legend><div class="chips">
+        ${Object.entries(s.worlds).map(([k, v]) => `<label class="chip"><input type="radio" id="world-${k}" name="world" value="${k}" ${currentWorld() === k ? "checked" : ""}><span>${v}</span></label>`).join("")}
+      </div></fieldset>
       <fieldset><legend>${s.legendLevel}</legend><div class="chips">
         ${Object.entries(s.levels).map(([k, v]) => `<label class="chip"><input type="radio" id="level-${k}" name="level" value="${k}" ${settings.level === k ? "checked" : ""}><span>${v}</span></label>`).join("")}
       </div></fieldset>
       <fieldset><legend>${s.legendAsk}</legend><div class="chips">
-        ${KINDS.map(k => `<label class="chip"><input type="checkbox" id="kind-${k}" name="kind" value="${k}" ${settings.kinds.has(k) ? "checked" : ""}><span>${s.kinds[k]}<i data-count="${k}"></i></span></label>`).join("")}
+        ${kindsFor(currentWorld()).map(k => `<label class="chip"><input type="checkbox" id="kind-${k}" name="kind" value="${k}" ${settings.kinds.has(k) ? "checked" : ""}><span>${W("kinds")[k]}<i data-count="${k}"></i></span></label>`).join("")}
       </div></fieldset>
       <fieldset><legend>${s.legendHow}</legend><div class="chips">
         ${Object.entries(s.types).map(([k, v]) => `<label class="chip"><input type="radio" id="type-${k}" name="type" value="${k}" ${settings.type === k ? "checked" : ""}><span>${v}</span></label>`).join("")}
       </div></fieldset>
       <fieldset><legend>${s.legendWhere}</legend><div class="chips">
-        ${Object.keys(REGIONS).map(r => `<label class="chip"><input type="radio" id="region-${r.replace(" ", "-")}" name="region" value="${r}" ${settings.region === r ? "checked" : ""}><span>${s.regions[r]}</span></label>`).join("")}
+        ${Object.keys(REGIONS).filter(r => REGIONS[r].world === currentWorld()).map(r => `<label class="chip"><input type="radio" id="region-${r.replace(/\W+/g, "-")}" name="region" value="${r}" ${settings.region === r ? "checked" : ""}><span>${s.regions[r]}</span></label>`).join("")}
       </div></fieldset>
       <div class="start"><button class="primary" id="start" type="submit">${s.start}</button><span id="start-note"></span>${saveNote()}</div>
     </form></div>`);
   const form = document.getElementById("setup-form");
   const update = () => {
-    settings.kinds = new Set([...form.querySelectorAll("[name=kind]:checked")].map(i => i.value));
+    /* Flags aren't offered in Middle-earth, but stay chosen for when the player comes back to Earth. */
+    const shown = kindsFor(currentWorld());
+    settings.kinds = new Set([...[...settings.kinds].filter(k => !shown.includes(k)), ...[...form.querySelectorAll("[name=kind]:checked")].map(i => i.value)]);
     settings.type = form.querySelector("[name=type]:checked").value;
     settings.level = form.querySelector("[name=level]:checked").value;
+    const world = form.querySelector("[name=world]:checked").value;
+    if (world !== currentWorld()) {
+      settings.region = ROOTS[world];
+      showRegion(settings.region);
+      music.begin(settings.region);
+      return setupDock();
+    }
     const region = form.querySelector("[name=region]:checked").value;
     /* Picking a region previews its song. */
     if (region !== settings.region) { settings.region = region; showRegion(region); music.begin(region); }
     let pool = 0;
-    for (const k of KINDS) {
+    for (const k of kindsFor(currentWorld())) {
       const n = poolCount(k, region, settings.level);
       form.querySelector(`[data-count=${k}]`).textContent = n;
       if (settings.kinds.has(k)) pool += n;
@@ -814,7 +951,7 @@ function renderSetup() {
   showRegion(settings.region);
 }
 function startRound() {
-  game.round = pickRound([...settings.kinds], settings.region, settings.type, settings.level);
+  game.round = pickRound(kindsFor(currentWorld()).filter(k => settings.kinds.has(k)), settings.region, settings.type, settings.level);
   for (const q of game.round) if (q.item.flag) new Image().src = q.item.flag;
   game.index = 0; game.total = 0;
   game.roundId = newRoundId();
@@ -838,7 +975,7 @@ function questionDock() {
     const hint = countryLike ? s.hintCountry : s.hintPin;
     const title = q.item.flag ? s.findFlag : fill(s.find, { name: `<span class="target">${esc(label(q.item))}</span>` });
     setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
-      <div>${flag}<h2>${title}</h2><p>${s.one[q.item.kind]}. ${hint}</p></div>
+      <div>${flag}<h2>${title}</h2><p>${W("one")[q.item.kind]}. ${hint}</p></div>
       <div class="actions"><button class="quiet" id="skip" type="button">${s.skip}</button>${countryLike ? "" : `<button class="primary" id="confirm" type="button" ${game.pick ? "" : "disabled"}>${s.confirm}</button>`}</div>
     </div></div>`);
     document.getElementById("skip").onclick = () => answerFind(null);
@@ -846,7 +983,7 @@ function questionDock() {
   } else {
     const typed = document.getElementById("answer")?.value || "";
     setDock(`<div class="wrap">${statusBar(q)}<div class="prompt">
-      <div>${flag}<h2>${s.nameThis[q.item.kind]}</h2><p>${s.hintSpelling}</p></div>
+      <div>${flag}<h2>${W("nameThis")[q.item.kind]}</h2><p>${s.hintSpelling}</p></div>
       <form class="answer-form" id="answer-form" autocomplete="off">
         <input id="answer" type="text" aria-label="${s.answerLabel}" placeholder="${s.placeholder}" autocomplete="off" autocapitalize="words" spellcheck="false" value="${esc(typed)}">
         <button class="primary" type="submit">${s.answer}</button><button class="quiet" id="skip" type="button">${s.skip}</button>
@@ -1412,7 +1549,7 @@ function saveAnswer(q) {
     game.unsaved++;
     if (game.phase === "summary") game.drawDock();
   };
-  api("answers", { round: game.roundId, kind: q.item.kind, region: q.item.region, area: settings.region, level: settings.level, mode: q.mode, place: q.item.names.en, points: q.points })
+  api("answers", { round: game.roundId, world: q.item.world, kind: q.item.kind, region: q.item.region, area: settings.region, level: settings.level, mode: q.mode, place: q.item.names.en, points: q.points })
     .then(r => { if (!r.ok) missed(); }, missed);
 }
 function loginDock() {
@@ -1465,16 +1602,19 @@ function profileDock() {
   if (account.error) body = `<p class="account-error" role="alert">${s.profileError}</p>`;
   else if (p && !p.overall.count) body = `<p class="account-note">${s.noAnswers}</p>`;
   else if (p) {
-    /* Antarctica only has two mountains, so it stays out of the way until someone meets them. */
-    const regions = Object.entries(p.regions).filter(([r, st]) => r !== "Antarctica" || st.count);
     const dateText = at => new Date(at * 1000).toLocaleDateString(lang, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-    body = `<div class="stats">
-        <div><h3>${s.statsKinds}</h3>${KINDS.map(k => statRow(s.kinds[k], p.kinds[k])).join("")}</div>
-        <div><h3>${s.statsRegions}</h3>${regions.map(([r, st]) => statRow(s.regions[r], st)).join("")}</div>
-      </div>
+    /* A map only shows up once it has been played. Antarctica only has two mountains, so it waits until someone meets them. */
+    const worlds = Object.entries(p.worlds).filter(([, st]) => st.overall.count);
+    body = worlds.map(([world, st]) => {
+      const regions = Object.entries(st.regions).filter(([r, rs]) => r !== "Antarctica" || rs.count);
+      return `${worlds.length > 1 ? `<h3 class="world-head">${s.worlds[world]}</h3>` : ""}<div class="stats">
+        <div><h3>${s.statsKinds}</h3>${kindsFor(world).map(k => statRow(W("kinds", world)[k], st.kinds[k])).join("")}</div>
+        <div><h3>${s.statsRegions}</h3>${regions.map(([r, rs]) => statRow(s.regions[r], rs)).join("")}</div>
+      </div>`;
+    }).join("") + `
       <p class="account-note">${fill(s.accuracyNote, { n: p.window })}</p>
       <div><div class="log-head">${s.statsRounds}</div><ol class="log">${p.rounds.map(r => `<li>
-        <span>${esc(dateText(r.at))} · ${s.regions[r.area]} · ${s.levels[r.level]} · ${r.kinds.map(k => s.kinds[k]).join(", ")}</span><b>${num(r.points)} / ${num(r.answered * 100)}</b></li>`).join("")}</ol></div>`;
+        <span>${esc(dateText(r.at))} · ${s.regions[r.area]} · ${s.levels[r.level]} · ${r.kinds.map(k => W("kinds", r.world)[k]).join(", ")}</span><b>${num(r.points)} / ${num(r.answered * 100)}</b></li>`).join("")}</ol></div>`;
   }
   setDock(`<div class="wrap">${head}${body}</div>`);
   document.getElementById("account-back").onclick = account.back;
@@ -1555,7 +1695,7 @@ document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
   game.drawDock();
 });
 
-window.blankMap = { account, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks, factsFor };
+window.blankMap = { account, middle, REGIONS, LEVELS, inPool, poolCount, settings, ITEMS, matchAnswer, nearest, pointsFor, pointsForPick, hitAt, normalize, pickRound, game, projection, svg, music, fireworks, factsFor };
 applyLanguage();
 layout();
 renderSetup();

@@ -18,7 +18,8 @@ import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent
-STATIC = {"/": "index.html", "/index.html": "index.html", "/data.js": "data.js", "/facts.js": "facts.js", "/quiz.js": "quiz.js"}
+STATIC = {"/": "index.html", "/index.html": "index.html", "/data.js": "data.js", "/facts.js": "facts.js", "/quiz.js": "quiz.js",
+          "/middleearth.js": "middleearth.js"}
 FLAG_PATH = re.compile(r"/flags/[a-z]{2}\.svg")
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 
@@ -30,9 +31,19 @@ PASSWORD_LENGTH = (6, 200)
 SCRYPT = {"n": 2 ** 14, "r": 8, "p": 1}
 ATTEMPT_LIMIT, ATTEMPT_SECONDS = 20, 300
 
-KINDS = ("country", "capital", "flag", "mountain", "river")
-REGIONS = ("Africa", "Asia", "Europe", "North America", "South America", "Oceania", "Antarctica")
-AREAS = ("World", *REGIONS)
+# What each map can ask about. Areas are the "Where" choices, regions are where a place actually is.
+WORLDS = {
+    "earth": {
+        "kinds": ("country", "capital", "flag", "mountain", "river"),
+        "regions": ("Africa", "Asia", "Europe", "North America", "South America", "Oceania", "Antarctica"),
+        "root": "World",
+    },
+    "middle": {
+        "kinds": ("country", "capital", "mountain", "river"),
+        "regions": ("Eriador", "Rhovanion", "Southlands"),
+        "root": "Middle-earth",
+    },
+}
 LEVELS = ("easy", "medium", "hard")
 MODES = ("name", "find")
 ROUND_ID = re.compile(r"[0-9a-f]{32}")
@@ -66,7 +77,8 @@ CREATE TABLE IF NOT EXISTS answers (
   level TEXT NOT NULL,
   mode TEXT NOT NULL,
   place TEXT NOT NULL,
-  points INTEGER NOT NULL
+  points INTEGER NOT NULL,
+  world TEXT NOT NULL DEFAULT 'earth'
 );
 CREATE INDEX IF NOT EXISTS answers_by_user ON answers (user_id, id);
 """
@@ -140,6 +152,9 @@ class Game(ThreadingHTTPServer):
         with self.db() as con:
             con.execute("PRAGMA journal_mode=WAL")
             con.executescript(SCHEMA)
+            # Databases from before Middle-earth only hold Earth answers.
+            if "world" not in [row[1] for row in con.execute("PRAGMA table_info(answers)")]:
+                con.execute("ALTER TABLE answers ADD COLUMN world TEXT NOT NULL DEFAULT 'earth'")
 
     @contextlib.contextmanager
     def db(self):
@@ -308,10 +323,12 @@ class Handler(BaseHTTPRequestHandler):
         points = data.get("points")
         place = data.get("place")
         round_id = data.get("round")
-        valid = (isinstance(points, int) and not isinstance(points, bool) and 0 <= points <= 100
+        world = WORLDS.get(data.get("world", "earth"))
+        valid = (world is not None and isinstance(points, int) and not isinstance(points, bool) and 0 <= points <= 100
                  and isinstance(place, str) and 0 < len(place) <= 80
                  and isinstance(round_id, str) and ROUND_ID.fullmatch(round_id)
-                 and data.get("kind") in KINDS and data.get("region") in REGIONS and data.get("area") in AREAS
+                 and data.get("kind") in world["kinds"] and data.get("region") in world["regions"]
+                 and data.get("area") in (world["root"], *world["regions"])
                  and data.get("level") in LEVELS and data.get("mode") in MODES)
         if not valid:
             return self.fail(400, "answer")
@@ -320,8 +337,8 @@ class Handler(BaseHTTPRequestHandler):
             if not user:
                 return self.fail(401, "login")
             con.execute(
-                "INSERT INTO answers (user_id, round_id, at, kind, region, area, level, mode, place, points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (user["id"], round_id, int(time.time()), data["kind"], data["region"], data["area"], data["level"], data["mode"], place, points),
+                "INSERT INTO answers (user_id, round_id, at, world, kind, region, area, level, mode, place, points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (user["id"], round_id, int(time.time()), data.get("world", "earth"), data["kind"], data["region"], data["area"], data["level"], data["mode"], place, points),
             )
         self.send_json(201, {"saved": True})
 
@@ -330,19 +347,24 @@ class Handler(BaseHTTPRequestHandler):
             user = self.current_user(con)
             if not user:
                 return self.fail(401, "login")
-            answers = con.execute("SELECT kind, region, points FROM answers WHERE user_id = ? ORDER BY id DESC", (user["id"],)).fetchall()
+            answers = con.execute("SELECT world, kind, region, points FROM answers WHERE user_id = ? ORDER BY id DESC", (user["id"],)).fetchall()
             rounds = con.execute(
-                """SELECT MAX(at) AS at, MIN(area) AS area, MIN(level) AS level, GROUP_CONCAT(DISTINCT kind) AS kinds,
+                """SELECT MAX(at) AS at, MIN(world) AS world, MIN(area) AS area, MIN(level) AS level, GROUP_CONCAT(DISTINCT kind) AS kinds,
                           COUNT(*) AS answered, SUM(points) AS points
                    FROM answers WHERE user_id = ? GROUP BY round_id ORDER BY MAX(id) DESC LIMIT 10""",
                 (user["id"],),
             ).fetchall()
-        points_where = lambda field, value: [a["points"] for a in answers if a[field] == value]
+        def world_stats(name, world):
+            mine = [a for a in answers if a["world"] == name]
+            return {
+                "overall": stat([a["points"] for a in mine]),
+                "kinds": {kind: stat([a["points"] for a in mine if a["kind"] == kind]) for kind in world["kinds"]},
+                "regions": {region: stat([a["points"] for a in mine if a["region"] == region]) for region in world["regions"]},
+            }
         self.send_json(200, {
             "name": user["name"],
             "overall": stat([a["points"] for a in answers]),
-            "kinds": {kind: stat(points_where("kind", kind)) for kind in KINDS},
-            "regions": {region: stat(points_where("region", region)) for region in REGIONS},
+            "worlds": {name: world_stats(name, world) for name, world in WORLDS.items()},
             "rounds": [{**dict(r), "kinds": r["kinds"].split(",")} for r in rounds],
             "window": WINDOW,
         })

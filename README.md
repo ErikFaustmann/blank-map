@@ -2,6 +2,8 @@
 
 A browser geography game. Name or find countries, capitals, mountains and rivers on an unlabelled world map, in German or English.
 
+There is also a Middle-earth map, with its lands, places, mountains and rivers.
+
 ## Play it
 
 Install [Docker](https://www.docker.com/products/docker-desktop/), start it, then run:
@@ -56,6 +58,8 @@ Facts about each place live in `facts.js`, which you can edit directly.
 
 Flag codes and the easy and hard lists live in `quiz.js`.
 
+Everything about Middle-earth lives in `middleearth.js`: the coast, lakes and mountain ranges, every place with its facts, and the seed points that decide where each land's borders run. The game builds the map from it when the page loads.
+
 Places live in `tools/content.py`, with German names in `tools/content_de.py`. `tools/build_data.py` joins them with the map data and writes `data.js`.
 
 Download these into an empty folder, then pass that folder to the script:
@@ -72,6 +76,10 @@ python tools/build_data.py path/to/downloads
 ## Map data
 
 [Natural Earth](https://www.naturalearthdata.com/), public domain, via [world-atlas](https://github.com/topojson/world-atlas).
+
+## Middle-earth
+
+Middle-earth was created by J.R.R. Tolkien. The map in this game is drawn by hand and only roughly follows his. The facts are written for this game. It is an unofficial fan work, not endorsed by the Tolkien Estate or Middle-earth Enterprises, and the names and setting remain theirs. Check the rights holders' fan policies before publishing it.
 
 ## Flags
 
