@@ -22,7 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent
 STATIC = {"/": "index.html", "/index.html": "index.html", "/data.js": "data.js", "/facts.js": "facts.js", "/quiz.js": "quiz.js",
-          "/middleearth.js": "middleearth.js", "/usa.js": "usa.js", "/images.js": "images.js"}
+          "/middleearth.js": "middleearth.js", "/usa.js": "usa.js", "/images.js": "images.js", "/water.js": "water.js"}
 FLAG_PATH = re.compile(r"/flags/[a-z]{2}\.svg")
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 
@@ -40,8 +40,8 @@ RESET_SECONDS = 3600
 # What each map can ask about. Areas are the "Where" choices, regions are where a place actually is.
 WORLDS = {
     "earth": {
-        "kinds": ("country", "capital", "flag", "mountain", "river"),
-        "regions": ("Africa", "Asia", "Europe", "North America", "South America", "Oceania", "Antarctica"),
+        "kinds": ("country", "capital", "flag", "mountain", "river", "water"),
+        "regions": ("Africa", "Asia", "Europe", "North America", "South America", "Oceania", "Antarctica", "Oceans"),
         "root": "World",
     },
     "usa": {

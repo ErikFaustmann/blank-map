@@ -27,6 +27,7 @@ KEYWORDS = {
     "mountain": r"mountain|peak|volcano|summit|massif|hill|dome|monolith|monument|memorial|point",
     "river": r"river|waterway|stream|tributary",
     "state": r"state",
+    "water": r"ocean|sea|lake|gulf|bay|bight|strait|channel|passage|estuary|reservoir|body of water",
 }
 # Article titles where the plain name finds the wrong page.
 TITLES = {
@@ -93,6 +94,8 @@ def places():
         out.append(("usa", "state", s["en"], [s["en"]]))
         c = s["capital"]["en"]
         out.append(("usa", "capital", c, [f"{c}, {s['en']}", c]))
+    for w in load_js("water.js")["waters"]:
+        out.append(("earth", "water", w["en"], [w["en"]]))
     for m in usa["mountains"]:
         out.append(("usa", "mountain", m["en"], [m["en"], f"{m['en']} (mountain)"]))
     for r in usa["rivers"]:

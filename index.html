@@ -47,6 +47,14 @@ body { background: var(--sea); color: var(--ink); font: 15px/1.45 var(--body); o
 .borders { fill: none; stroke: var(--border); stroke-width: 1; stroke-linejoin: round; }
 #map .relief-rivers { fill: none; stroke: var(--river); stroke-width: .7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 #map .relief-peak { fill: var(--peak); stroke: var(--land); stroke-width: .5; pointer-events: none; }
+#map .lakes { fill: var(--sea); stroke: var(--coast); stroke-width: .6; }
+#map .hl-water { fill: var(--mark); fill-opacity: .4; stroke: var(--mark); stroke-width: 1.6; }
+/* Rivers have a wide invisible band around them, so they are easy to point at. */
+#map .river-hit { fill: none; stroke: transparent; stroke-width: 12; stroke-linecap: round; pointer-events: stroke; }
+#map .river-glow { fill: none; stroke: var(--pick); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.map-label { pointer-events: none; }
+.map-label text { font: 600 14px var(--display); letter-spacing: .02em; text-anchor: middle; fill: var(--ink); stroke: var(--panel); stroke-width: 3.5px; stroke-linejoin: round; paint-order: stroke; }
+.map-label circle { fill: var(--ink); stroke: var(--panel); stroke-width: 1.5; }
 #map .hl-area { fill: var(--mark); fill-opacity: .62; stroke: var(--mark); stroke-width: 1.4; }
 #map .hl-river { fill: none; stroke: var(--mark); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 #map .hl-river-halo { fill: none; stroke: var(--panel); stroke-width: 6; stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
@@ -259,13 +267,14 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="quiz.js"></script>
 <script src="middleearth.js"></script>
 <script src="usa.js"></script>
+<script src="water.js"></script>
 <script src="images.js"></script>
 <script>
 "use strict";
 const DATA = window.BLANK_MAP_DATA;
 const EARTH_KM = 6371;
 const ROUND_LENGTH = 15;
-const KINDS = ["country", "capital", "flag", "mountain", "river"];
+const KINDS = ["country", "capital", "flag", "mountain", "river", "water"];
 const QUIZ = window.BLANK_MAP_QUIZ;
 /* The tiers each level draws from, most wanted first. Easy never reaches the hardest tier. */
 const LEVELS = { easy: [1, 2], medium: [2, 1, 3], hard: [3, 2, 1] };
@@ -299,17 +308,18 @@ Object.assign(REGIONS, {
 });
 const ROOTS = { earth: "World", usa: "USA", middle: "Middle-earth" };
 function currentWorld() { return REGIONS[settings.region].world; }
-const kindsFor = world => KINDS.filter(k => world === "earth" || k !== "flag");
+/* Flags and waters are only asked about on Earth. */
+const kindsFor = world => KINDS.filter(k => world === "earth" || (k !== "flag" && k !== "water"));
 
 /* ---------- Language ---------- */
 const STRINGS = {
   en: {
-    kinds: { country: "Countries", capital: "Capitals", flag: "Flags", mountain: "Mountains", river: "Rivers" },
+    kinds: { country: "Countries", capital: "Capitals", flag: "Flags", mountain: "Mountains", river: "Rivers", water: "Oceans & lakes" },
     levels: { easy: "Easy", medium: "Medium", hard: "Hard" },
-    one: { country: "Country", capital: "Capital city", flag: "Flag", mountain: "Mountain", river: "River" },
+    one: { country: "Country", capital: "Capital city", flag: "Flag", mountain: "Mountain", river: "River", water: "Ocean, sea or lake" },
     findFlag: "Find the country with this flag", flagAlt: "The flag to identify",
-    nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river" },
-    regions: { World: "World", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
+    nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river", water: "Name this ocean, sea or lake" },
+    regions: { World: "World", Oceans: "Oceans", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
       "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South",
       USA: "All states", Northeast: "Northeast", Midwest: "Midwest", South: "South", West: "West" },
     legendMap: "Map", worlds: { earth: "Earth", usa: "USA", middle: "Middle-earth" }, meRiver: "About {km} km long.",
@@ -342,6 +352,7 @@ const STRINGS = {
     skipped: "Skipped", correct: "Correct",
     rightCountry: "You coloured in the right country.",
     chose: "You chose {name}, {km} km away.", choseArea: "You chose another area, {km} km away.",
+    pinInside: "Your pin is right inside it.",
     pinNear: "Your pin is {km} km away, close enough for full points.", pinFar: "Your pin is {km} km away.",
     close: "Close enough: you typed “{typed}”.", typed: "You typed “{typed}”.",
     factCapital: "Capital: {name}.", capitalOf: "Capital of {name}.", about: "About {area}.",
@@ -372,12 +383,12 @@ const STRINGS = {
     unsaved: "{n} answers couldn't be saved to your profile.", profileError: "Couldn't load your profile.",
   },
   de: {
-    kinds: { country: "Länder", capital: "Hauptstädte", flag: "Flaggen", mountain: "Berge", river: "Flüsse" },
+    kinds: { country: "Länder", capital: "Hauptstädte", flag: "Flaggen", mountain: "Berge", river: "Flüsse", water: "Meere & Seen" },
     levels: { easy: "Leicht", medium: "Mittel", hard: "Schwer" },
-    one: { country: "Land", capital: "Hauptstadt", flag: "Flagge", mountain: "Berg", river: "Fluss" },
+    one: { country: "Land", capital: "Hauptstadt", flag: "Flagge", mountain: "Berg", river: "Fluss", water: "Ozean, Meer oder See" },
     findFlag: "Finde das Land mit dieser Flagge", flagAlt: "Die gesuchte Flagge",
-    nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
-    regions: { World: "Welt", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
+    nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", water: "Wie heißt dieses Gewässer?" },
+    regions: { World: "Welt", Oceans: "Ozeane", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
       "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden",
       USA: "Alle Staaten", Northeast: "Nordosten", Midwest: "Mittlerer Westen", South: "Süden", West: "Westen" },
     legendMap: "Karte", worlds: { earth: "Erde", usa: "USA", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
@@ -410,6 +421,7 @@ const STRINGS = {
     skipped: "Übersprungen", correct: "Richtig",
     rightCountry: "Du hast das richtige Land eingefärbt.",
     chose: "Du hast {name} gewählt, {km} km entfernt.", choseArea: "Du hast ein anderes Gebiet gewählt, {km} km entfernt.",
+    pinInside: "Deine Nadel liegt genau darin.",
     pinNear: "Deine Nadel ist {km} km entfernt, nah genug für die volle Punktzahl.", pinFar: "Deine Nadel ist {km} km entfernt.",
     close: "Nah genug: Du hast „{typed}“ eingegeben.", typed: "Du hast „{typed}“ eingegeben.",
     factCapital: "Hauptstadt: {name}.", capitalOf: "Hauptstadt von {name}.", about: "Rund {area}.",
@@ -465,7 +477,9 @@ function countryGeometry(c) {
 function areaKm2(geo) { return d3.geoArea(geo) * EARTH_KM * EARTH_KM; }
 function roundArea(km2) {
   if (km2 >= 1e6) return `${(km2 / 1e6).toLocaleString(lang, { maximumFractionDigits: 1 })} ${S().million}`;
-  return `${num(Math.round(km2 / 1000) * 1000)} km²`;
+  /* Small lakes and countries round to the hundred, so they don't all come out as 1,000 km². */
+  const step = km2 < 10000 ? 100 : 1000;
+  return `${num(Math.max(step, Math.round(km2 / step) * step))} km²`;
 }
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const sentence = text => text[0].toUpperCase() + text.slice(1);
@@ -495,6 +509,18 @@ for (const c of DATA.countries) {
 for (const m of DATA.mountains) ITEMS.push({ kind: "mountain", names: { en: m.name, de: m.de.name }, aliases: [...m.aliases, ...m.de.aliases], region: m.region,
   geo: { type: "Point", coordinates: m.coord }, full: 75, zero: 1500,
   fact: () => `${num(m.elevation)} m. ${sentence(lang === "de" ? m.de.range : m.range)}, ${lang === "de" ? m.de.where : m.where}.` });
+/* Oceans, seas and lakes. Their outlines may wind either way round, and d3 reads the wrong way as
+   "everything except this", so any part bigger than half the globe is turned around. */
+const WATER = window.BLANK_MAP_WATER;
+const turnRight = polygon => d3.geoArea({ type: "Polygon", coordinates: polygon }) > 2 * Math.PI ? polygon.map(r => r.slice().reverse()) : polygon;
+for (const w of WATER.waters) {
+  const geo = { type: "MultiPolygon", coordinates: w.shape.map(turnRight) };
+  const size = Math.sqrt(areaKm2(geo));
+  ITEMS.push({ kind: "water", names: { en: w.en, de: w.de }, aliases: w.aliases, region: w.region, tier: w.tier, facts: w.facts,
+    geo, size, full: 0, zero: clamp(.8 * size, 300, 2500),
+    fact: () => `${S().regions[w.region]}. ${fill(S().about, { area: roundArea(size * size) })}` });
+}
+const lakeShapes = { type: "MultiPolygon", coordinates: WATER.lakes.map(turnRight) };
 for (const r of DATA.rivers) ITEMS.push({ kind: "river", names: { en: r.name, de: r.de.name }, aliases: [...r.aliases, ...r.de.aliases], region: r.region,
   geo: { type: "MultiLineString", coordinates: r.lines }, full: 50, zero: clamp(r.length * 0.4, 400, 1500),
   fact: () => fill(S().river, { km: num(r.length), mouth: lang === "de" ? r.de.mouth : r.mouth }) });
@@ -701,7 +727,7 @@ function eachCoord(coords, fn) {
   if (typeof coords[0] === "number") fn(coords); else for (const c of coords) eachCoord(c, fn);
 }
 function nearest(item, lonLat) {
-  if (isCountryLike(item) && d3.geoContains(item.geo, lonLat)) return { km: 0, at: null };
+  if ((isCountryLike(item) || item.kind === "water") && d3.geoContains(item.geo, lonLat)) return { km: 0, at: null };
   let best = Infinity, at = null;
   eachCoord(item.geo.coordinates, p => {
     const d = d3.geoDistance(p, lonLat);
@@ -750,15 +776,19 @@ const base = {
   sphere: zoomLayer.append("path").attr("class", "sphere"),
   graticule: zoomLayer.append("path").attr("class", "graticule"),
   land: zoomLayer.append("path").attr("class", "land"),
+  lakes: zoomLayer.append("path").attr("class", "lakes"),
   borders: zoomLayer.append("path").attr("class", "borders"),
 };
 const landClip = svg.append("defs").append("clipPath").attr("id", "middle-land").append("path");
 const guessedLayer = zoomLayer.append("g");
 const reliefRivers = zoomLayer.append("path").attr("class", "relief-rivers");
+const riverGlow = zoomLayer.append("path").attr("class", "river-glow");
 const reliefPeaks = zoomLayer.append("g");
 const hoverPath = zoomLayer.append("path").attr("class", "sel-hover");
 const overlay = zoomLayer.append("g");
 const markers = zoomLayer.append("g");
+const riverHits = zoomLayer.append("g");
+const labelLayer = zoomLayer.append("g");
 let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null, drawnWorld = null;
 const fitTarget = () => ({ middle: middle.frame, usa: usa.land })[currentWorld()] || { type: "Sphere" };
 
@@ -769,6 +799,8 @@ const zoom = d3.zoom().scaleExtent([1, 80]).clickDistance(4).on("zoom", e => {
   currentK = e.transform.k;
   markers.selectAll("g").attr("transform", sizedToScreen);
   reliefPeaks.selectAll("path").attr("transform", sizedToScreen);
+  labelLayer.selectAll("g").attr("transform", sizedToScreen);
+  declutterLabels();
 });
 svg.call(zoom).on("dblclick.zoom", null);
 
@@ -780,6 +812,7 @@ function drawBase() {
   const inUsa = currentWorld() === "usa";
   base.graticule.attr("d", inMiddle ? null : geoPath(inUsa ? { type: "GeometryCollection", geometries: [graticule, usa.insets] } : graticule));
   base.land.attr("d", geoPath(inMiddle ? middle.land : inUsa ? usa.land : { type: "FeatureCollection", features: allFeatures }));
+  base.lakes.attr("d", inMiddle || inUsa ? null : geoPath(lakeShapes));
   landClip.attr("d", inMiddle ? geoPath(middle.land) : null);
   base.borders.attr("d", geoPath(inMiddle ? middle.borders : inUsa ? usa.border : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
   drawRelief();
@@ -796,9 +829,80 @@ function drawRelief() {
     return { x, y };
   });
   reliefPeaks.selectAll("path").data(peaks).join("path").attr("class", "relief-peak").attr("d", "M0,-4.5L4.5,3L-4.5,3Z").attr("transform", sizedToScreen);
+  riverGlow.attr("d", null);
+  game.riverHover = null;
+  riverHits.selectAll("path").data(here.filter(i => i.kind === "river")).join("path").attr("class", "river-hit").attr("d", d => geoPath(d.geo))
+    .on("pointerenter", (e, d) => {
+      game.riverHover = d;
+      riverGlow.attr("d", geoPath(d.geo));
+      if (e.pointerType === "mouse" && riverFacts(d)) showFactsAt(d, e.clientX, e.clientY);
+      else if (game.mapFact) hideFacts();
+    })
+    .on("pointerleave", (e, d) => {
+      game.riverHover = null;
+      riverGlow.attr("d", null);
+      if (game.mapFact === d) hideFacts();
+    })
+    .on("click", (e, d) => {
+      /* On a touchscreen a tap shows the facts. The map still gets the click, for placing a pin. */
+      if (riverFacts(d)) { showFactsAt(d, e.clientX, e.clientY); e.mapFactShown = true; }
+    });
+}
+/* A river answered correctly shows its facts, unless the player is busy finding something. */
+function riverFacts(river) {
+  const finding = game.phase === "question" && game.round[game.index].mode === "find";
+  return !finding && game.rightItems.get(river.geo) === river;
+}
+/* Where a place's name goes on the map: the point itself, the middle of a river's longest stretch,
+   or the centre of an area's biggest part. */
+function labelPoint(item) {
+  const geo = item.geo;
+  if (geo.type === "Point") return geo.coordinates;
+  if (geo.type === "MultiLineString") {
+    const longest = d3.greatest(geo.coordinates, line => d3.geoLength({ type: "LineString", coordinates: line }));
+    return longest[Math.floor(longest.length / 2)];
+  }
+  const parts = geo.type === "Polygon" ? [geo.coordinates] : geo.type === "MultiPolygon" ? geo.coordinates : null;
+  if (!parts) return d3.geoCentroid(geo);
+  return d3.geoCentroid({ type: "Polygon", coordinates: d3.greatest(parts, p => d3.geoArea({ type: "Polygon", coordinates: p })) });
+}
+/* Everything answered correctly this round has its name written on the map. */
+function redrawLabels() {
+  const world = currentWorld();
+  const shown = [...game.rightItems.values()].filter(item => item.world === world && item.geo !== game.hiddenGuess);
+  const data = shown.map(item => {
+    const [x, y] = projection(item.labelAt ||= labelPoint(item));
+    return { x, y, item };
+  });
+  const groups = labelLayer.selectAll("g").data(data).join(enter => {
+    const g = enter.append("g").attr("class", "map-label");
+    g.append("circle");
+    g.append("text");
+    return g;
+  });
+  groups.attr("transform", sizedToScreen);
+  groups.select("circle").attr("r", d => d.item.geo.type === "Point" ? 3 : 0);
+  groups.select("text").attr("y", d => d.item.geo.type === "Point" ? -8 : 5).text(d => label(d.item));
+  groups.each(function (d) { d.box = this.querySelector("text").getBBox(); });
+  declutterLabels();
+}
+/* Labels that would overlap one already shown are hidden, newest answers first. Zooming in makes room again. */
+function declutterLabels() {
+  const t = d3.zoomTransform(svg.node()), placed = [];
+  const groups = labelLayer.selectAll("g").nodes().reverse();
+  for (const g of groups) {
+    const d = d3.select(g).datum(), b = d.box;
+    if (!b) continue;
+    const x = t.applyX(d.x), y = t.applyY(d.y);
+    const r = { x0: x + b.x - 2, x1: x + b.x + b.width + 2, y0: y + b.y - 1, y1: y + b.y + b.height + 1 };
+    const clash = placed.some(p => r.x0 < p.x1 && p.x0 < r.x1 && r.y0 < p.y1 && p.y0 < r.y1);
+    g.style.display = clash ? "none" : null;
+    if (!clash) placed.push(r);
+  }
 }
 /* Countries already played this round keep their colour, with a legend once there is something to explain. */
 function redrawGuessed() {
+  redrawLabels();
   const shown = [...game.guessed].filter(([geo]) => geo !== game.hiddenGuess);
   guessedLayer.selectAll("path").data(shown).join("path").attr("class", d => d[1]).attr("d", d => geoPath(d[0]));
   const legend = document.getElementById("legend");
@@ -893,6 +997,9 @@ function highlight(item, targetK) {
   if (item.kind === "river") {
     overlay.append("path").attr("class", "hl-river-halo").attr("d", geoPath(item.geo));
     overlay.append("path").attr("class", "hl-river").attr("d", geoPath(item.geo));
+  } else if (item.kind === "water") {
+    overlay.append("path").attr("class", "hl-water").attr("d", geoPath(item.geo));
+    if (Math.sqrt(geoPath.area(item.geo)) * targetK < 16) addMarker(d3.geoCentroid(item.geo), drawRing);
   } else if (isCountryLike(item)) {
     if (game.hiddenGuess === item.geo || !game.guessed.has(item.geo)) overlay.append("path").attr("class", "hl-area").attr("d", geoPath(item.geo));
     if (Math.sqrt(geoPath.area(item.geo)) * targetK < 16) addMarker(d3.geoCentroid(item.geo), drawRing);
@@ -905,7 +1012,7 @@ function showQuestion(item) {
   clearMarks();
   setRotation(item.region === "Oceania" ? -165 : REGIONS[homeRegion].rotate);
   const opts = { pad: .22, maxK: 40 };
-  const bounds = focusBounds(item, item.kind === "river" ? 14 : item.kind === "country" ? 14 : 34);
+  const bounds = focusBounds(item, item.kind === "river" || item.kind === "water" || item.kind === "country" ? 14 : 34);
   activeView = () => showQuestion(item);
   game.hiddenGuess = item.geo;
   redrawGuessed();
@@ -951,6 +1058,7 @@ svg.on("pointermove", e => {
   readout.textContent = ll && currentWorld() === "earth" ? `${formatCoord(ll[1], "N", "S")}  ${formatCoord(ll[0], "E", "W")}` : "";
   if (e.pointerType !== "mouse" || e.buttons !== 0) return;
   previewCountry(ll);
+  if (game.riverHover) return;
   const item = guessedAt(ll);
   if (item === game.mapFact) return;
   if (item) showFactsAt(item, e.clientX, e.clientY);
@@ -1162,11 +1270,7 @@ function resetGuessed() {
 function markGuess(q, points, hit) {
   if (!isCountryLike(q.item)) return;
   const set = (geo, cls) => { game.guessed.delete(geo); game.guessed.set(geo, cls); };
-  if (points === 100) {
-    game.rightItems.set(q.item.geo, q.item);
-    return set(q.item.geo, "hl-right");
-  }
-  game.rightItems.delete(q.item.geo);
+  if (points === 100) return set(q.item.geo, "hl-right");
   if (hit && hit.geo !== q.item.geo) set(hit.geo, "hl-chosen");
   set(q.item.geo, "hl-area");
 }
@@ -1249,6 +1353,7 @@ function renderQuestion() {
 svg.on("click", e => {
   if (game.phase !== "question" || game.round[game.index].mode !== "find") {
     /* Touchscreens have no hover, so a tap on a correctly coloured place shows its facts instead. */
+    if (e.mapFactShown) return;
     const item = guessedAt(eventLonLat(e));
     if (item) showFactsAt(item, e.clientX, e.clientY);
     return;
@@ -1275,6 +1380,7 @@ function feedbackText(q) {
   return {
     skipped: s.skipped + ".",
     right: W("rightCountry"),
+    inside: s.pinInside,
     chose: name ? fill(s.chose, { name, km }) : fill(s.choseArea, { km }),
     near: fill(s.pinNear, { km }),
     far: fill(s.pinFar, { km }),
@@ -1286,7 +1392,7 @@ function feedbackText(q) {
 function shortResult(q) {
   const s = S(), r = q.result;
   if (r.type === "skipped") return s.skipped;
-  if (r.type === "right" || r.type === "exact" || r.type === "close") return s.correct;
+  if (r.type === "right" || r.type === "inside" || r.type === "exact" || r.type === "close") return s.correct;
   if (r.type === "wrong") return lang === "de" ? `„${r.typed}“` : `“${r.typed}”`;
   return `${num(r.km)} km`;
 }
@@ -1306,6 +1412,9 @@ function feedbackDock() {
 function finishAnswer(q, points, result) {
   q.points = points; q.result = result;
   game.total += points;
+  if (points === 100) game.rightItems.set(q.item.geo, q.item);
+  else game.rightItems.delete(q.item.geo);
+  redrawLabels();
   saveAnswer(q);
   game.phase = "feedback";
   game.drawDock = feedbackDock;
@@ -1334,7 +1443,7 @@ function answerFind(pick) {
   const points = isCountryLike(q.item) ? pointsForPick(q.item, km, pick.hit) : pointsFor(q.item, km);
   markGuess(q, points, pick.hit);
   showReveal(q.item, pick.ll, pick.hit);
-  const type = km === 0 ? "right" : pick.hit ? "chose" : km <= q.item.full ? "near" : "far";
+  const type = km === 0 ? (q.item.kind === "water" ? "inside" : "right") : pick.hit ? "chose" : km <= q.item.full ? "near" : "far";
   finishAnswer(q, points, { type, km, hit: pick.hit });
 }
 function answerName(typed) {
