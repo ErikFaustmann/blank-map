@@ -46,9 +46,38 @@ The game also runs as plain static files, for example with `python -m http.serve
 
 ## Profiles
 
-You can play without a profile. With one, every answer is saved in a SQLite database. Passwords are stored as scrypt hashes and can't be recovered if forgotten.
+You can play without a profile. With one, every answer is saved in a SQLite database. Passwords are stored as scrypt hashes, so nobody can read them, but a profile with an email address can get a reset link.
 
 Accuracy for each category uses the last 30 answers, with each answer counting 7% less than the one after it. Older answers no longer count, so 30 perfect answers in a row always give 100%.
+
+### Password reset by email
+
+Players can add an email address to their profile. If they forget their password, "Forgot your password?" sends them a link that works once, for one hour. For that, the server needs an email account to send from. Put its settings in a file called `.env` next to `compose.yaml`, for example for Gmail with an [app password](https://support.google.com/accounts/answer/185833):
+
+```
+BLANK_MAP_SMTP_HOST=smtp.gmail.com
+BLANK_MAP_SMTP_PORT=587
+BLANK_MAP_SMTP_USER=you@gmail.com
+BLANK_MAP_SMTP_PASSWORD=your-app-password
+BLANK_MAP_MAIL_FROM=you@gmail.com
+BLANK_MAP_PUBLIC_URL=http://localhost:8770
+```
+
+`BLANK_MAP_PUBLIC_URL` is where the links in the emails point, so set it to the address players open the game at. For SMTP over SSL on port 465, add `BLANK_MAP_SMTP_SSL=1`. `.env` holds a password, so it stays out of git. Then restart with `docker compose up -d`. Without these settings, the game works as before, just without the "Forgot your password?" link. Running `python server.py` reads the same settings from the environment.
+
+### Managing profiles
+
+To list the profiles, or delete one with all its answers:
+
+```bash
+docker compose exec blank-map python server.py --list-profiles
+```
+
+```bash
+docker compose exec blank-map python server.py --delete-profile "Name"
+```
+
+Deleting asks you to type the name again first. Without Docker, run `python server.py --list-profiles` or `python server.py --delete-profile "Name"` instead.
 
 Everyone who runs their own copy has their own separate profiles. To share profiles, host one copy on a server behind HTTPS and set `BLANK_MAP_SECURE_COOKIE=1`. Plain HTTP sends passwords unencrypted, so only use it on your own computer.
 

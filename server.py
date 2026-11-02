@@ -10,11 +10,14 @@ import pathlib
 import re
 import secrets
 import signal
+import smtplib
 import sqlite3
+import ssl
 import sys
 import threading
 import time
 import unicodedata
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -30,6 +33,9 @@ NAME_LENGTH = (2, 24)
 PASSWORD_LENGTH = (6, 200)
 SCRYPT = {"n": 2 ** 14, "r": 8, "p": 1}
 ATTEMPT_LIMIT, ATTEMPT_SECONDS = 20, 300
+EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+EMAIL_LENGTH = 254
+RESET_SECONDS = 3600
 
 # What each map can ask about. Areas are the "Where" choices, regions are where a place actually is.
 WORLDS = {
@@ -86,6 +92,11 @@ CREATE TABLE IF NOT EXISTS answers (
   world TEXT NOT NULL DEFAULT 'earth'
 );
 CREATE INDEX IF NOT EXISTS answers_by_user ON answers (user_id, id);
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires INTEGER NOT NULL
+);
 """
 
 
@@ -111,6 +122,67 @@ def hash_token(token):
 
 def clean_name(name):
     return " ".join(unicodedata.normalize("NFKC", name).split())
+
+
+def clean_email(email):
+    """Returns a trimmed email address, "" for none, or None when it isn't one."""
+    if not isinstance(email, str):
+        return None
+    email = email.strip()
+    if not email:
+        return ""
+    return email if len(email) <= EMAIL_LENGTH and EMAIL.fullmatch(email) else None
+
+
+class Mailer:
+    """Sends password reset links through an SMTP account set in the environment.
+    With BLANK_MAP_SMTP_HOST=log the mails are printed to the server log instead, for testing."""
+
+    def __init__(self, env, public_url):
+        self.host = env.get("BLANK_MAP_SMTP_HOST", "")
+        self.port = int(env.get("BLANK_MAP_SMTP_PORT") or 587)
+        self.user = env.get("BLANK_MAP_SMTP_USER", "")
+        self.password = env.get("BLANK_MAP_SMTP_PASSWORD", "")
+        self.sender = env.get("BLANK_MAP_MAIL_FROM") or self.user
+        self.ssl = env.get("BLANK_MAP_SMTP_SSL") == "1"
+        self.public_url = public_url.rstrip("/")
+
+    @property
+    def enabled(self):
+        return self.host == "log" or bool(self.host and self.sender)
+
+    def reset_mail(self, to, name, token, lang):
+        link = f"{self.public_url}/?reset={token}"
+        if lang == "de":
+            subject = "Mapolo: neues Passwort"
+            body = (f"Hallo {name},\n\nmit diesem Link kannst du ein neues Passwort für dein Mapolo-Profil wählen. "
+                    f"Er gilt eine Stunde und nur einmal:\n\n{link}\n\nWenn du das nicht angefordert hast, ignoriere diese E-Mail einfach.\n")
+        else:
+            subject = "Mapolo: reset your password"
+            body = (f"Hi {name},\n\nuse this link to choose a new password for your Mapolo profile. "
+                    f"It works once, for one hour:\n\n{link}\n\nIf you didn't ask for this, just ignore this email.\n")
+        self.send(to, subject, body)
+
+    def send(self, to, subject, body):
+        if self.host == "log":
+            print(f"--- mail to {to}: {subject}\n{body}--- end of mail", flush=True)
+            return
+        message = EmailMessage()
+        message["From"], message["To"], message["Subject"] = self.sender, to, subject
+        message.set_content(body)
+        context = ssl.create_default_context()
+        try:
+            if self.ssl:
+                smtp = smtplib.SMTP_SSL(self.host, self.port, timeout=20, context=context)
+            else:
+                smtp = smtplib.SMTP(self.host, self.port, timeout=20)
+                smtp.starttls(context=context)
+            with smtp:
+                if self.user:
+                    smtp.login(self.user, self.password)
+                smtp.send_message(message)
+        except (OSError, smtplib.SMTPException) as error:
+            print(f"Couldn't send mail to {to}: {error}", flush=True)
 
 
 def accuracy(points):
@@ -145,21 +217,29 @@ class Attempts:
             self.seen.setdefault(address, []).append(now)
 
 
+def prepare(db_path):
+    """Creates the database, or brings an older one up to date."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.closing(sqlite3.connect(db_path, timeout=10)) as con, con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.executescript(SCHEMA)
+        # Databases from before Middle-earth only hold Earth answers, and older profiles have no email.
+        if "world" not in [row[1] for row in con.execute("PRAGMA table_info(answers)")]:
+            con.execute("ALTER TABLE answers ADD COLUMN world TEXT NOT NULL DEFAULT 'earth'")
+        if "email" not in [row[1] for row in con.execute("PRAGMA table_info(users)")]:
+            con.execute("ALTER TABLE users ADD COLUMN email TEXT")
+
+
 class Game(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, db_path, secure_cookie):
+    def __init__(self, address, db_path, secure_cookie, mailer=None):
         super().__init__(address, Handler)
         self.db_path = db_path
         self.secure_cookie = secure_cookie
+        self.mailer = mailer or Mailer({}, "")
         self.attempts = Attempts()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.db() as con:
-            con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(SCHEMA)
-            # Databases from before Middle-earth only hold Earth answers.
-            if "world" not in [row[1] for row in con.execute("PRAGMA table_info(answers)")]:
-                con.execute("ALTER TABLE answers ADD COLUMN world TEXT NOT NULL DEFAULT 'earth'")
+        prepare(db_path)
 
     @contextlib.contextmanager
     def db(self):
@@ -255,8 +335,9 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_POST(self):
-        routes = {"/api/register": self.post_register, "/api/login": self.post_login,
-                  "/api/logout": self.post_logout, "/api/answers": self.post_answer}
+        routes = {"/api/register": self.post_register, "/api/login": self.post_login, "/api/logout": self.post_logout,
+                  "/api/answers": self.post_answer, "/api/email": self.post_email, "/api/forgot": self.post_forgot,
+                  "/api/reset": self.post_reset}
         route = routes.get(self.path)
         if not route:
             return self.fail(404, "missing")
@@ -267,7 +348,8 @@ class Handler(BaseHTTPRequestHandler):
     def get_me(self):
         with self.server.db() as con:
             user = self.current_user(con)
-        self.send_json(200, {"user": {"name": user["name"]} if user else None})
+        self.send_json(200, {"user": {"name": user["name"], "email": user["email"] or ""} if user else None,
+                             "mail": self.server.mailer.enabled})
 
     def start_session(self, con, user_id):
         token = secrets.token_urlsafe(32)
@@ -279,9 +361,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def post_register(self, data):
         address = self.client_address[0]
-        name, password = data.get("name"), data.get("password")
+        name, password, email = data.get("name"), data.get("password"), clean_email(data.get("email", ""))
         if not isinstance(name, str) or not isinstance(password, str):
             return self.fail(400, "body")
+        if email is None:
+            return self.fail(400, "email")
         name = clean_name(name)
         if not NAME_LENGTH[0] <= len(name) <= NAME_LENGTH[1] or not name.isprintable():
             return self.fail(400, "name")
@@ -293,12 +377,12 @@ class Handler(BaseHTTPRequestHandler):
         password_hash = hash_password(password)
         try:
             with self.server.db() as con:
-                user_id = con.execute("INSERT INTO users (name, name_key, password_hash, created) VALUES (?, ?, ?, ?)",
-                                      (name, name.casefold(), password_hash, int(time.time()))).lastrowid
+                user_id = con.execute("INSERT INTO users (name, name_key, password_hash, created, email) VALUES (?, ?, ?, ?, ?)",
+                                      (name, name.casefold(), password_hash, int(time.time()), email or None)).lastrowid
                 cookie = self.start_session(con, user_id)
         except sqlite3.IntegrityError:
             return self.fail(409, "taken")
-        self.send_json(201, {"user": {"name": name}}, [cookie])
+        self.send_json(201, {"user": {"name": name, "email": email}}, [cookie])
 
     def post_login(self, data):
         address = self.client_address[0]
@@ -315,7 +399,84 @@ class Handler(BaseHTTPRequestHandler):
             return self.fail(401, "wrong")
         with self.server.db() as con:
             cookie = self.start_session(con, user["id"])
-        self.send_json(200, {"user": {"name": user["name"]}}, [cookie])
+        self.send_json(200, {"user": {"name": user["name"], "email": user["email"] or ""}}, [cookie])
+
+    def post_email(self, data):
+        """Changes the email of the logged-in profile. It asks for the password, so a borrowed session can't take over."""
+        email, password = clean_email(data.get("email", "")), data.get("password")
+        if email is None:
+            return self.fail(400, "email")
+        if not isinstance(password, str) or len(password) > PASSWORD_LENGTH[1]:
+            return self.fail(401, "wrong")
+        address = self.client_address[0]
+        if self.server.attempts.blocked(address):
+            return self.fail(429, "limit")
+        with self.server.db() as con:
+            user = self.current_user(con)
+        if not user:
+            return self.fail(401, "login")
+        if not check_password(password, user["password_hash"]):
+            self.server.attempts.add(address)
+            return self.fail(401, "wrong")
+        with self.server.db() as con:
+            con.execute("UPDATE users SET email = ? WHERE id = ?", (email or None, user["id"]))
+        self.send_json(200, {"user": {"name": user["name"], "email": email}})
+
+    def post_forgot(self, data):
+        """Mails a reset link to every profile with this address. The answer is the same whether or not one exists,
+        so nobody can use it to find out who plays."""
+        mailer = self.server.mailer
+        if not mailer.enabled:
+            return self.fail(503, "mail")
+        email = clean_email(data.get("email", ""))
+        if not email:
+            return self.fail(400, "email")
+        address = self.client_address[0]
+        if self.server.attempts.blocked(address):
+            return self.fail(429, "limit")
+        self.server.attempts.add(address)
+        lang = "de" if data.get("lang") == "de" else "en"
+        now = int(time.time())
+        mails = []
+        with self.server.db() as con:
+            con.execute("DELETE FROM password_resets WHERE expires <= ?", (now,))
+            for user in con.execute("SELECT * FROM users WHERE email IS NOT NULL").fetchall():
+                if user["email"].casefold() != email.casefold():
+                    continue
+                token = secrets.token_urlsafe(32)
+                con.execute("DELETE FROM password_resets WHERE user_id = ?", (user["id"],))
+                con.execute("INSERT INTO password_resets (token_hash, user_id, expires) VALUES (?, ?, ?)",
+                            (hash_token(token), user["id"], now + RESET_SECONDS))
+                mails.append((user["email"], user["name"], token))
+        # Sending in the background keeps the answer just as quick when there is nobody to mail.
+        for to, name, token in mails:
+            threading.Thread(target=mailer.reset_mail, args=(to, name, token, lang), daemon=True).start()
+        self.send_json(200, {"sent": True})
+
+    def post_reset(self, data):
+        token, password = data.get("token"), data.get("password")
+        if not isinstance(token, str) or not isinstance(password, str):
+            return self.fail(400, "body")
+        if not PASSWORD_LENGTH[0] <= len(password) <= PASSWORD_LENGTH[1]:
+            return self.fail(400, "password")
+        address = self.client_address[0]
+        if self.server.attempts.blocked(address):
+            return self.fail(429, "limit")
+        with self.server.db() as con:
+            user = con.execute(
+                "SELECT users.* FROM password_resets JOIN users ON users.id = password_resets.user_id WHERE token_hash = ? AND expires > ?",
+                (hash_token(token), int(time.time()))).fetchone()
+        if not user:
+            self.server.attempts.add(address)
+            return self.fail(400, "token")
+        password_hash = hash_password(password)
+        with self.server.db() as con:
+            # The link works once, and the new password logs out every other browser.
+            con.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user["id"]))
+            con.execute("DELETE FROM password_resets WHERE user_id = ?", (user["id"],))
+            con.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+            cookie = self.start_session(con, user["id"])
+        self.send_json(200, {"user": {"name": user["name"], "email": user["email"] or ""}}, [cookie])
 
     def post_logout(self, _data):
         token = self.session_token()
@@ -375,17 +536,51 @@ class Handler(BaseHTTPRequestHandler):
         })
 
 
+def list_profiles(db_path):
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        rows = con.execute("SELECT name, email, (SELECT COUNT(*) FROM answers WHERE user_id = users.id) FROM users ORDER BY name_key").fetchall()
+    for name, email, answers in rows:
+        print(f"{name}  ({answers} answers, {'email ' + email if email else 'no email'})")
+    if not rows:
+        print("No profiles yet.")
+
+
+def delete_profile(db_path, name):
+    """Deletes a profile with all its answers, after asking for the name to be typed again."""
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        con.execute("PRAGMA foreign_keys=ON")
+        row = con.execute("SELECT id, name, (SELECT COUNT(*) FROM answers WHERE user_id = users.id) FROM users WHERE name_key = ?",
+                          (clean_name(name).casefold(),)).fetchone()
+        if not row:
+            sys.exit(f"There is no profile called {name!r}. Use --list-profiles to see them all.")
+        user_id, real_name, answers = row
+        typed = input(f"This deletes {real_name} and their {answers} answers for good. Type the name again to go ahead: ")
+        if clean_name(typed).casefold() != clean_name(real_name).casefold():
+            sys.exit("Nothing deleted.")
+        with con:
+            con.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    print(f"Deleted {real_name}.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Serve Mapolo with player profiles.")
     parser.add_argument("--host", default=os.environ.get("BLANK_MAP_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("BLANK_MAP_PORT", "8770")))
     parser.add_argument("--db", type=pathlib.Path, default=pathlib.Path(os.environ.get("BLANK_MAP_DB", ROOT / "userdata" / "blank-map.sqlite")))
+    parser.add_argument("--list-profiles", action="store_true", help="list the profiles and exit")
+    parser.add_argument("--delete-profile", metavar="NAME", help="delete a profile and its answers, then exit")
     args = parser.parse_args()
+    if args.list_profiles or args.delete_profile:
+        prepare(args.db)
+        return list_profiles(args.db) if args.list_profiles else delete_profile(args.db, args.delete_profile)
     # Set this when the game sits behind HTTPS, so browsers never send the login cookie unencrypted.
     secure_cookie = os.environ.get("BLANK_MAP_SECURE_COOKIE") == "1"
-    server = Game((args.host, args.port), args.db, secure_cookie)
+    # Reset links in emails point here, so it must be the address players use to open the game.
+    public_url = os.environ.get("BLANK_MAP_PUBLIC_URL") or f"http://localhost:{args.port}"
+    server = Game((args.host, args.port), args.db, secure_cookie, Mailer(os.environ, public_url))
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     print(f"Mapolo is at http://{args.host}:{args.port}", flush=True)
+    print("Password reset emails are " + ("on" if server.mailer.enabled else "off: set BLANK_MAP_SMTP_HOST to turn them on"), flush=True)
     server.serve_forever()
 
 

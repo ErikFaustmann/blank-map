@@ -174,6 +174,12 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 .account-error { margin: 0; color: var(--bad); font-weight: 500; }
 .account-error:empty { display: none; }
 .account-note { margin: 0; color: var(--muted); font-size: 13px; }
+.account-ok { margin: 0; color: var(--good); font-weight: 500; }
+.account-ok:empty { display: none; }
+.account-form label small { font-weight: 400; color: var(--muted); }
+.link-button { justify-self: start; padding: 0; border: 0; background: none; color: var(--pick); font-size: 14px; text-decoration: underline; }
+.link-button:hover:not(:disabled) { background: none; }
+.email-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; color: var(--muted); font-size: 14px; }
 .profile-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
 .profile-head h2 { font: 700 40px/1 var(--display); margin: 0; overflow-wrap: anywhere; }
 .profile-head h2 small { display: block; margin-top: 4px; font: 500 16px/1.2 var(--body); color: var(--muted); }
@@ -344,8 +350,16 @@ const STRINGS = {
     login: "Log in", register: "Create profile", logout: "Log out", back: "Back", profile: "Your profile",
     loginIntro: "Log in to save your rounds and see how good you are in each category. You can also play without a profile.",
     nameLabel: "Name", passwordLabel: "Password",
-    passwordNote: "Names need 2 to 24 characters, passwords at least 6. A forgotten password can't be recovered.",
-    errors: { name: "Names need 2 to 24 characters.", password: "Passwords need at least 6 characters.", taken: "That name is already taken.", wrong: "That name and password don't match.", limit: "Too many tries. Wait a few minutes.", network: "Couldn't reach the server. Try again." },
+    passwordNote: "Names need 2 to 24 characters, passwords at least 6. Without an email, a forgotten password can't be reset.",
+    emailLabel: "Email", emailOptional: "only for new profiles, so you can reset a forgotten password",
+    forgot: "Forgot your password?", forgotTitle: "Reset your password", sendLink: "Send link",
+    forgotIntro: "Enter the email address of your profile, and we'll send you a link to choose a new password.",
+    linkSent: "If a profile uses this address, a link is on its way. It works once, for one hour.",
+    resetTitle: "Choose a new password", newPassword: "New password", savePassword: "Save password",
+    emailNow: "Email: {email}", noEmail: "No email yet, so a forgotten password can't be reset.", changeEmail: "Change email", addEmail: "Add email",
+    currentPassword: "Your current password", save: "Save", cancel: "Cancel", emailSaved: "Email saved.",
+    errors: { name: "Names need 2 to 24 characters.", password: "Passwords need at least 6 characters.", taken: "That name is already taken.", wrong: "That name and password don't match.", limit: "Too many tries. Wait a few minutes.", network: "Couldn't reach the server. Try again.",
+      email: "That doesn't look like an email address.", mail: "Password reset by email isn't set up on this server.", token: "This link has expired or was already used. Ask for a new one.", current: "That isn't your current password.", login: "You've been logged out. Log in again." },
     overall: "Overall accuracy: {score}%", noAnswers: "No answers yet. Play a round to get started.", statsKinds: "Categories", statsRegions: "Regions", statsRounds: "Recent rounds",
     accuracyNote: "Accuracy uses only your last {n} answers in each category, and the newest count most. {n} perfect answers in a row always take a category to 100%.",
     answerCount: "{n} answers", savedAs: "Logged in as {name}. Your results are saved.", notSaved: "Not logged in, so this round won't be saved.",
@@ -403,8 +417,16 @@ const STRINGS = {
     login: "Anmelden", register: "Profil erstellen", logout: "Abmelden", back: "Zurück", profile: "Dein Profil",
     loginIntro: "Melde dich an, um deine Runden zu speichern und zu sehen, wie gut du in jeder Kategorie bist. Du kannst auch ohne Profil spielen.",
     nameLabel: "Name", passwordLabel: "Passwort",
-    passwordNote: "Namen brauchen 2 bis 24 Zeichen, Passwörter mindestens 6. Ein vergessenes Passwort lässt sich nicht wiederherstellen.",
-    errors: { name: "Namen brauchen 2 bis 24 Zeichen.", password: "Passwörter brauchen mindestens 6 Zeichen.", taken: "Dieser Name ist schon vergeben.", wrong: "Name und Passwort passen nicht zusammen.", limit: "Zu viele Versuche. Warte ein paar Minuten.", network: "Der Server ist nicht erreichbar. Versuch es noch einmal." },
+    passwordNote: "Namen brauchen 2 bis 24 Zeichen, Passwörter mindestens 6. Ohne E-Mail lässt sich ein vergessenes Passwort nicht zurücksetzen.",
+    emailLabel: "E-Mail", emailOptional: "nur für neue Profile, damit du ein vergessenes Passwort zurücksetzen kannst",
+    forgot: "Passwort vergessen?", forgotTitle: "Passwort zurücksetzen", sendLink: "Link senden",
+    forgotIntro: "Gib die E-Mail-Adresse deines Profils ein, dann schicken wir dir einen Link für ein neues Passwort.",
+    linkSent: "Falls ein Profil diese Adresse nutzt, ist ein Link unterwegs. Er funktioniert einmal und eine Stunde lang.",
+    resetTitle: "Neues Passwort wählen", newPassword: "Neues Passwort", savePassword: "Passwort speichern",
+    emailNow: "E-Mail: {email}", noEmail: "Noch keine E-Mail, also lässt sich ein vergessenes Passwort nicht zurücksetzen.", changeEmail: "E-Mail ändern", addEmail: "E-Mail hinzufügen",
+    currentPassword: "Dein aktuelles Passwort", save: "Speichern", cancel: "Abbrechen", emailSaved: "E-Mail gespeichert.",
+    errors: { name: "Namen brauchen 2 bis 24 Zeichen.", password: "Passwörter brauchen mindestens 6 Zeichen.", taken: "Dieser Name ist schon vergeben.", wrong: "Name und Passwort passen nicht zusammen.", limit: "Zu viele Versuche. Warte ein paar Minuten.", network: "Der Server ist nicht erreichbar. Versuch es noch einmal.",
+      email: "Das sieht nicht wie eine E-Mail-Adresse aus.", mail: "Das Zurücksetzen per E-Mail ist auf diesem Server nicht eingerichtet.", token: "Dieser Link ist abgelaufen oder wurde schon benutzt. Fordere einen neuen an.", current: "Das ist nicht dein aktuelles Passwort.", login: "Du wurdest abgemeldet. Melde dich wieder an." },
     overall: "Genauigkeit insgesamt: {score} %", noAnswers: "Noch keine Antworten. Spiel eine Runde, um loszulegen.", statsKinds: "Kategorien", statsRegions: "Regionen", statsRounds: "Letzte Runden",
     accuracyNote: "Die Genauigkeit berücksichtigt nur deine letzten {n} Antworten pro Kategorie, die neuesten zählen am meisten. Mit {n} perfekten Antworten in Folge erreicht jede Kategorie 100 %.",
     answerCount: "{n} Antworten", savedAs: "Angemeldet als {name}. Deine Ergebnisse werden gespeichert.", notSaved: "Nicht angemeldet, diese Runde wird nicht gespeichert.",
@@ -1675,7 +1697,13 @@ const music = (() => {
 
 /* ---------- Profiles ---------- */
 /* Profiles need server.py. Served as plain files there is no API, and the game simply has no login. */
-const account = { available: false, user: null, profile: null, error: "", view: "login", back: null };
+const account = { available: false, mail: false, user: null, profile: null, error: "", note: "", editingEmail: false, back: null,
+  /* A reset link opens the game with ?reset=…, which is kept here and removed from the address bar. */
+  resetToken: new URLSearchParams(location.search).get("reset") };
+if (account.resetToken) history.replaceState(null, "", location.pathname);
+const errorText = code => esc(S().errors[code] || S().errors.network);
+const keep = ids => Object.fromEntries(ids.map(id => [id, document.getElementById(id)?.value || ""]));
+const restore = values => Object.entries(values).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
 const accountButton = document.getElementById("account");
 async function api(path, body) {
   const options = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true } : {};
@@ -1706,30 +1734,92 @@ function saveAnswer(q) {
 }
 function loginDock() {
   const s = S();
-  const typed = { name: document.getElementById("login-name")?.value || "", password: document.getElementById("login-password")?.value || "" };
+  const typed = keep(["login-name", "login-password", "login-email"]);
   setDock(`<div class="wrap">
     <div class="profile-head"><h2>${s.profile}</h2><div class="actions"><button class="quiet" id="account-back" type="button">${s.back}</button></div></div>
     <p class="account-note">${s.loginIntro}</p>
     <form class="account-form" id="login-form">
       <label>${s.nameLabel}<input id="login-name" name="username" autocomplete="username" maxlength="24" autocapitalize="off" spellcheck="false" required></label>
       <label>${s.passwordLabel}<input id="login-password" name="password" type="password" autocomplete="current-password" maxlength="200" required></label>
-      <p class="account-error" role="alert">${account.error ? esc(s.errors[account.error] || s.errors.network) : ""}</p>
+      <label>${s.emailLabel} <small>(${s.emailOptional})</small><input id="login-email" name="email" type="email" autocomplete="email" maxlength="254" spellcheck="false"></label>
+      <p class="account-error" role="alert">${account.error ? errorText(account.error) : ""}</p>
       <div class="actions"><button class="primary" id="login-submit" type="submit">${s.login}</button><button class="quiet" id="register-submit" type="submit" value="register">${s.register}</button></div>
+      ${account.mail ? `<button class="link-button" id="forgot" type="button">${s.forgot}</button>` : ""}
       <p class="account-note">${s.passwordNote}</p>
     </form></div>`);
-  document.getElementById("login-name").value = typed.name;
-  document.getElementById("login-password").value = typed.password;
+  restore(typed);
   document.getElementById("account-back").onclick = account.back;
+  if (account.mail) document.getElementById("forgot").onclick = () => openView(forgotDock);
   document.getElementById("login-form").addEventListener("submit", e => {
     e.preventDefault();
     logIn(e.submitter && e.submitter.value === "register" ? "register" : "login");
   });
-  document.getElementById(typed.name ? "login-password" : "login-name").focus({ preventScroll: true });
+  document.getElementById(typed["login-name"] ? "login-password" : "login-name").focus({ preventScroll: true });
+}
+function forgotDock() {
+  const s = S();
+  const typed = keep(["forgot-email"]);
+  setDock(`<div class="wrap">
+    <div class="profile-head"><h2>${s.forgotTitle}</h2><div class="actions"><button class="quiet" id="account-back" type="button">${s.back}</button></div></div>
+    <p class="account-note">${s.forgotIntro}</p>
+    <form class="account-form" id="forgot-form">
+      <label>${s.emailLabel}<input id="forgot-email" type="email" autocomplete="email" maxlength="254" spellcheck="false" required></label>
+      <p class="account-error" role="alert">${account.error ? errorText(account.error) : ""}</p>
+      <p class="account-ok" role="status">${account.note ? s.linkSent : ""}</p>
+      <div class="actions"><button class="primary" type="submit">${s.sendLink}</button></div>
+    </form></div>`);
+  restore(typed);
+  document.getElementById("account-back").onclick = openLogin;
+  document.getElementById("forgot-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    try {
+      const { ok, data } = await api("forgot", { email: document.getElementById("forgot-email").value, lang });
+      account.error = ok ? "" : data.error;
+      account.note = ok ? "sent" : "";
+    } catch (err) {
+      account.error = "network";
+    }
+    forgotDock();
+  });
+  document.getElementById("forgot-email").focus({ preventScroll: true });
+}
+function resetDock() {
+  const s = S();
+  setDock(`<div class="wrap">
+    <div class="profile-head"><h2>${s.resetTitle}</h2><div class="actions"><button class="quiet" id="account-back" type="button">${s.back}</button></div></div>
+    <form class="account-form" id="reset-form">
+      <label>${s.newPassword}<input id="reset-password" type="password" autocomplete="new-password" maxlength="200" minlength="6" required></label>
+      <p class="account-error" role="alert">${account.error ? errorText(account.error) : ""}</p>
+      <div class="actions"><button class="primary" type="submit">${s.savePassword}</button>${account.error === "token" && account.mail ? `<button class="link-button" id="forgot" type="button">${s.forgot}</button>` : ""}</div>
+    </form></div>`);
+  document.getElementById("account-back").onclick = () => { account.resetToken = null; account.back(); };
+  if (document.getElementById("forgot")) document.getElementById("forgot").onclick = () => openView(forgotDock);
+  document.getElementById("reset-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    try {
+      const { ok, data } = await api("reset", { token: account.resetToken, password: document.getElementById("reset-password").value });
+      if (!ok) { account.error = data.error; return resetDock(); }
+      account.resetToken = null;
+      account.user = data.user;
+      showProfile();
+    } catch (err) {
+      account.error = "network";
+      resetDock();
+    }
+  });
+  document.getElementById("reset-password").focus({ preventScroll: true });
+}
+function openView(dock) {
+  account.error = "";
+  account.note = "";
+  game.drawDock = dock;
+  dock();
 }
 async function logIn(path) {
   const name = document.getElementById("login-name").value, password = document.getElementById("login-password").value;
+  const email = document.getElementById("login-email").value;
   try {
-    const { ok, data } = await api(path, { name, password });
+    const { ok, data } = await api(path, path === "register" ? { name, password, email } : { name, password });
     if (!ok) { account.error = data.error; return loginDock(); }
     account.user = data.user;
     account.error = "";
@@ -1750,14 +1840,23 @@ function profileDock() {
   const s = S(), p = account.profile;
   const head = `<div class="profile-head"><h2>${esc(account.user.name)}${p && p.overall.score != null ? `<small>${fill(s.overall, { score: p.overall.score })}</small>` : ""}</h2>
     <div class="actions"><button class="quiet" id="logout" type="button">${s.logout}</button><button class="primary" id="account-back" type="button">${s.back}</button></div></div>`;
-  let body = "";
-  if (account.error) body = `<p class="account-error" role="alert">${s.profileError}</p>`;
-  else if (p && !p.overall.count) body = `<p class="account-note">${s.noAnswers}</p>`;
+  const email = account.user.email;
+  const emailPart = account.editingEmail ? `<form class="account-form" id="email-form">
+      <label>${s.emailLabel}<input id="email-new" type="email" autocomplete="email" maxlength="254" spellcheck="false" value="${esc(email)}"></label>
+      <label>${s.currentPassword}<input id="email-password" type="password" autocomplete="current-password" maxlength="200" required></label>
+      <p class="account-error" role="alert">${account.note && account.note !== "saved" ? errorText(account.note === "wrong" ? "current" : account.note) : ""}</p>
+      <div class="actions"><button class="primary" type="submit">${s.save}</button><button class="quiet" id="email-cancel" type="button">${s.cancel}</button></div>
+    </form>` : `<p class="email-line"><span>${email ? esc(fill(s.emailNow, { email })) : s.noEmail}</span>
+      <button class="link-button" id="email-edit" type="button">${email ? s.changeEmail : s.addEmail}</button></p>
+      <p class="account-ok" role="status">${account.note === "saved" ? s.emailSaved : ""}</p>`;
+  let body = emailPart;
+  if (account.error) body += `<p class="account-error" role="alert">${s.profileError}</p>`;
+  else if (p && !p.overall.count) body += `<p class="account-note">${s.noAnswers}</p>`;
   else if (p) {
     const dateText = at => new Date(at * 1000).toLocaleDateString(lang, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
     /* A map only shows up once it has been played. Antarctica only has two mountains, so it waits until someone meets them. */
     const worlds = Object.entries(p.worlds).filter(([, st]) => st.overall.count);
-    body = worlds.map(([world, st]) => {
+    body += worlds.map(([world, st]) => {
       const regions = Object.entries(st.regions).filter(([r, rs]) => r !== "Antarctica" || rs.count);
       return `${worlds.length > 1 ? `<h3 class="world-head">${s.worlds[world]}</h3>` : ""}<div class="stats">
         <div><h3>${s.statsKinds}</h3>${kindsFor(world).map(k => statRow(W("kinds", world)[k], st.kinds[k])).join("")}</div>
@@ -1768,13 +1867,33 @@ function profileDock() {
       <div><div class="log-head">${s.statsRounds}</div><ol class="log">${p.rounds.map(r => `<li>
         <span>${esc(dateText(r.at))} · ${s.regions[r.area]} · ${s.levels[r.level]} · ${r.kinds.map(k => W("kinds", r.world)[k]).join(", ")}</span><b>${num(r.points)} / ${num(r.answered * 100)}</b></li>`).join("")}</ol></div>`;
   }
+  const typed = keep(["email-new", "email-password"]);
   setDock(`<div class="wrap">${head}${body}</div>`);
+  if (account.editingEmail && typed["email-password"]) restore(typed);
   document.getElementById("account-back").onclick = account.back;
   document.getElementById("logout").onclick = logOut;
+  const edit = document.getElementById("email-edit");
+  if (edit) edit.onclick = () => { account.editingEmail = true; account.note = ""; profileDock(); document.getElementById("email-new").focus({ preventScroll: true }); };
+  const form = document.getElementById("email-form");
+  if (!form) return;
+  document.getElementById("email-cancel").onclick = () => { account.editingEmail = false; account.note = ""; profileDock(); };
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    try {
+      const { ok, data } = await api("email", { email: document.getElementById("email-new").value, password: document.getElementById("email-password").value });
+      if (ok) { account.user = data.user; account.editingEmail = false; account.note = "saved"; }
+      else account.note = data.error;
+    } catch (err) {
+      account.note = "network";
+    }
+    profileDock();
+  });
 }
 async function showProfile() {
   account.profile = null;
   account.error = "";
+  account.note = "";
+  account.editingEmail = false;
   game.drawDock = profileDock;
   profileDock();
   try {
@@ -1788,9 +1907,7 @@ async function showProfile() {
   if (game.drawDock === profileDock) profileDock();
 }
 function openLogin() {
-  account.error = "";
-  game.drawDock = loginDock;
-  loginDock();
+  openView(loginDock);
 }
 async function logOut() {
   try {
@@ -1815,11 +1932,19 @@ async function loadAccount() {
     const { ok, data } = await api("me");
     if (!ok) return;
     account.available = true;
+    account.mail = data.mail;
     account.user = data.user;
   } catch (e) {
     return;
   }
+  if (account.resetToken) {
+    account.back = renderSetup;
+    game.phase = "account";
+    return openView(resetDock);
+  }
   if (game.phase === "setup") game.drawDock();
+  /* Someone who opened the login before this answer arrived is already logged in. */
+  else if (game.drawDock === loginDock && account.user) showProfile();
   else drawAccountButton();
 }
 

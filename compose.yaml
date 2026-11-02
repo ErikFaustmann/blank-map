@@ -5,6 +5,10 @@ services:
       - "8770:8770"
     volumes:
       - blank-map-data:/data
+    # Email settings for password resets go in a .env file next to this one. See the README.
+    env_file:
+      - path: .env
+        required: false
     restart: unless-stopped
 volumes:
   blank-map-data:
