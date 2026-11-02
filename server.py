@@ -1,4 +1,4 @@
-"""Serves Blank Map and keeps player profiles in SQLite. Uses only the Python standard library."""
+"""Serves Mapolo and keeps player profiles in SQLite. Uses only the Python standard library."""
 import argparse
 import contextlib
 import hashlib
@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent
 STATIC = {"/": "index.html", "/index.html": "index.html", "/data.js": "data.js", "/facts.js": "facts.js", "/quiz.js": "quiz.js",
-          "/middleearth.js": "middleearth.js"}
+          "/middleearth.js": "middleearth.js", "/usa.js": "usa.js"}
 FLAG_PATH = re.compile(r"/flags/[a-z]{2}\.svg")
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
 
@@ -37,6 +37,11 @@ WORLDS = {
         "kinds": ("country", "capital", "flag", "mountain", "river"),
         "regions": ("Africa", "Asia", "Europe", "North America", "South America", "Oceania", "Antarctica"),
         "root": "World",
+    },
+    "usa": {
+        "kinds": ("country", "capital", "mountain", "river"),
+        "regions": ("Northeast", "Midwest", "South", "West"),
+        "root": "USA",
     },
     "middle": {
         "kinds": ("country", "capital", "mountain", "river"),
@@ -169,7 +174,7 @@ class Game(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BlankMap"
+    server_version = "Mapolo"
     sys_version = ""
     timeout = 30
 
@@ -371,7 +376,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Serve Blank Map with player profiles.")
+    parser = argparse.ArgumentParser(description="Serve Mapolo with player profiles.")
     parser.add_argument("--host", default=os.environ.get("BLANK_MAP_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("BLANK_MAP_PORT", "8770")))
     parser.add_argument("--db", type=pathlib.Path, default=pathlib.Path(os.environ.get("BLANK_MAP_DB", ROOT / "userdata" / "blank-map.sqlite")))
@@ -380,7 +385,7 @@ def main():
     secure_cookie = os.environ.get("BLANK_MAP_SECURE_COOKIE") == "1"
     server = Game((args.host, args.port), args.db, secure_cookie)
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    print(f"Blank Map is at http://{args.host}:{args.port}", flush=True)
+    print(f"Mapolo is at http://{args.host}:{args.port}", flush=True)
     server.serve_forever()
 
 

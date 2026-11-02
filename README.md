@@ -1,8 +1,8 @@
-# Blank Map
+# Mapolo
 
 A browser geography game. Name or find countries, capitals, mountains and rivers on an unlabelled world map, in German or English.
 
-There is also a Middle-earth map, with its lands, places, mountains and rivers.
+There is also a USA map with the states, their capitals, mountains and rivers, and a Middle-earth map with its lands, places, mountains and rivers.
 
 ## Play it
 
@@ -58,6 +58,16 @@ Facts about each place live in `facts.js`, which you can edit directly.
 
 Flag codes and the easy and hard lists live in `quiz.js`.
 
+The USA's states, capitals, mountains, rivers and facts live in `tools/usa_content.py`. `tools/build_usa.py` joins them with the map data and writes `usa.js`. It needs these downloads in one folder:
+
+- [states-10m.json](https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json)
+- [ne_10m_rivers_north_america.geojson](https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_rivers_north_america.geojson)
+- ne_10m_rivers_lake_centerlines.geojson and ne_10m_populated_places_simple.geojson, as above
+
+```bash
+python tools/build_usa.py path/to/downloads
+```
+
 Everything about Middle-earth lives in `middleearth.js`: the coast, lakes and mountain ranges, every place with its facts, and the seed points that decide where each land's borders run. The game builds the map from it when the page loads.
 
 Places live in `tools/content.py`, with German names in `tools/content_de.py`. `tools/build_data.py` joins them with the map data and writes `data.js`.
@@ -76,6 +86,8 @@ python tools/build_data.py path/to/downloads
 ## Map data
 
 [Natural Earth](https://www.naturalearthdata.com/), public domain, via [world-atlas](https://github.com/topojson/world-atlas).
+
+US state borders: US Census Bureau, public domain, via [us-atlas](https://github.com/topojson/us-atlas). On the USA map, Alaska and Hawaii are moved into boxes below the mainland and Alaska is shrunk, so distances there are not to scale.
 
 ## Middle-earth
 
