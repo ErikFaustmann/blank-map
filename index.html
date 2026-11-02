@@ -732,7 +732,7 @@ function pickRound(kinds, region, type, level) {
 }
 
 /* ---------- Map ---------- */
-const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null, guessed: new Map(), hiddenGuess: null };
+const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null, guessed: new Map(), rightItems: new Map(), hiddenGuess: null, mapFact: null };
 const svg = d3.select("#map");
 const zoomLayer = svg.append("g");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -949,9 +949,18 @@ const readout = document.getElementById("readout");
 svg.on("pointermove", e => {
   const ll = eventLonLat(e);
   readout.textContent = ll && currentWorld() === "earth" ? `${formatCoord(ll[1], "N", "S")}  ${formatCoord(ll[0], "E", "W")}` : "";
-  if (e.pointerType === "mouse" && e.buttons === 0) previewCountry(ll);
+  if (e.pointerType !== "mouse" || e.buttons !== 0) return;
+  previewCountry(ll);
+  const item = guessedAt(ll);
+  if (item === game.mapFact) return;
+  if (item) showFactsAt(item, e.clientX, e.clientY);
+  else if (game.mapFact) hideFacts();
 });
-svg.on("pointerleave", () => { readout.textContent = ""; previewCountry(null); });
+svg.on("pointerleave", () => {
+  readout.textContent = "";
+  previewCountry(null);
+  if (game.mapFact) hideFacts();
+});
 /* Tints the country under the mouse while a "find this country" question is open. */
 function previewCountry(ll) {
   const open = game.phase === "question" && game.round[game.index].mode === "find" && isCountryLike(game.round[game.index].item);
@@ -1036,16 +1045,40 @@ function pictureFor(item) {
     onerror="const f = this.closest('figure'); f.querySelector('.fact-flag')?.classList.add('solo'); f.replaceWith(...f.querySelectorAll('.fact-flag'))">${flagImg(false)}</div>
     <figcaption>${esc(fill(S().photoBy, { by: photo.by, license: photo.license }))}</figcaption></figure>`;
 }
-function hideFacts() { factPop.hidden = true; }
-function showFacts(trigger) {
-  const item = game.round[+trigger.dataset.facts].item, facts = factsFor(item);
-  if (!facts.length) return;
+function hideFacts() { factPop.hidden = true; game.mapFact = null; }
+function fillFacts(item) {
+  const facts = factsFor(item);
+  if (!facts.length) return false;
   factPop.innerHTML = `${pictureFor(item)}<h3>${esc(label(item))}</h3><ul>${facts.map(f => `<li>${esc(f)}</li>`).join("")}</ul>`;
   factPop.hidden = false;
+  return true;
+}
+/* Above a name in the dock. */
+function showFacts(trigger) {
+  if (!fillFacts(game.round[+trigger.dataset.facts].item)) return;
+  game.mapFact = null;
   const box = trigger.getBoundingClientRect();
   factPop.style.left = `${clamp(box.left, 16, Math.max(16, innerWidth - factPop.offsetWidth - 16))}px`;
+  factPop.style.top = "auto";
   factPop.style.bottom = `${innerHeight - box.top + 8}px`;
   factPop.style.maxHeight = `${Math.max(120, box.top - 16)}px`;
+}
+/* Next to the pointer on the map: below and to the right, or above when there is no room below. */
+function showFactsAt(item, x, y) {
+  factPop.style.maxHeight = `${innerHeight - 32}px`;
+  if (!fillFacts(item)) return;
+  game.mapFact = item;
+  const w = factPop.offsetWidth, h = factPop.offsetHeight;
+  factPop.style.left = `${clamp(x + 18, 16, Math.max(16, innerWidth - w - 16))}px`;
+  factPop.style.bottom = "auto";
+  factPop.style.top = `${y + 18 + h <= innerHeight - 16 ? y + 18 : Math.max(16, y - 18 - h)}px`;
+}
+/* A place on the map that was already answered correctly, unless the player is busy finding something. */
+function guessedAt(ll) {
+  const finding = game.phase === "question" && game.round[game.index].mode === "find";
+  if (!ll || finding) return null;
+  const hit = hitAt(ll);
+  return hit && hit.item && hit.item.geo !== game.hiddenGuess ? game.rightItems.get(hit.item.geo) || null : null;
 }
 dock.addEventListener("mouseover", e => { const t = e.target.closest("[data-facts]"); if (t) showFacts(t); });
 dock.addEventListener("mouseout", e => {
@@ -1121,6 +1154,7 @@ function setupDock() {
 }
 function resetGuessed() {
   game.guessed.clear();
+  game.rightItems.clear();
   game.hiddenGuess = null;
   redrawGuessed();
 }
@@ -1128,7 +1162,11 @@ function resetGuessed() {
 function markGuess(q, points, hit) {
   if (!isCountryLike(q.item)) return;
   const set = (geo, cls) => { game.guessed.delete(geo); game.guessed.set(geo, cls); };
-  if (points === 100) return set(q.item.geo, "hl-right");
+  if (points === 100) {
+    game.rightItems.set(q.item.geo, q.item);
+    return set(q.item.geo, "hl-right");
+  }
+  game.rightItems.delete(q.item.geo);
   if (hit && hit.geo !== q.item.geo) set(hit.geo, "hl-chosen");
   set(q.item.geo, "hl-area");
 }
@@ -1209,7 +1247,12 @@ function renderQuestion() {
   }
 }
 svg.on("click", e => {
-  if (game.phase !== "question" || game.round[game.index].mode !== "find") return;
+  if (game.phase !== "question" || game.round[game.index].mode !== "find") {
+    /* Touchscreens have no hover, so a tap on a correctly coloured place shows its facts instead. */
+    const item = guessedAt(eventLonLat(e));
+    if (item) showFactsAt(item, e.clientX, e.clientY);
+    return;
+  }
   const ll = eventLonLat(e);
   if (!ll) return;
   const { item } = game.round[game.index];
