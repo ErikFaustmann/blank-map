@@ -97,6 +97,12 @@ The USA's states, capitals, mountains, rivers and facts live in `tools/usa_conte
 python tools/build_usa.py path/to/downloads
 ```
 
+Sights for Earth and the USA live in `tools/sights_content.py`. `tools/build_sights.py` looks up their coordinates on Wikidata and writes `sights.js`. Run `tools/build_images.py` afterwards, so new sights get a photo: a sight's photo is its question, so sights without one are left out.
+
+```bash
+python tools/build_sights.py
+```
+
 Everything about Middle-earth lives in `middleearth.js`: the coast, lakes and mountain ranges, every place with its facts, and the seed points that decide where each land's borders run. The game builds the map from it when the page loads.
 
 Places live in `tools/content.py`, with German names in `tools/content_de.py`. `tools/build_data.py` joins them with the map data and writes `data.js`.

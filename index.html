@@ -177,6 +177,12 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 .fact-art .y { fill: var(--ok); } .fact-art .t { fill: var(--good); } .fact-art .n { fill: none; }
 
 .flag-q { display: block; height: 84px; width: auto; margin-bottom: 8px; border: 1px solid var(--line); }
+/* A sight's photo is its question, so it gets room to be recognised. */
+.sight-q { margin: 0 0 8px; }
+.sight-q img { display: block; height: 180px; max-width: 100%; width: auto; object-fit: cover; border: 1px solid var(--line); background: var(--panel-2); }
+.sight-q figcaption { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.m-sight { fill: var(--mark); stroke: var(--panel); stroke-width: 1.5; stroke-linejoin: round; }
+.map-label .label-sight { fill: var(--ink); stroke: var(--panel); stroke-width: 1.2; stroke-linejoin: round; }
 .flag-small { height: 24px; width: auto; margin-right: 8px; vertical-align: -3px; border: 1px solid var(--line); }
 
 /* Login and profile */
@@ -229,6 +235,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
   .brand p { margin-bottom: 0; }
   .prompt h2 { font-size: 28px; }
   .flag-q { height: 60px; }
+  .sight-q img { height: 130px; }
   .tally li { width: 14px; }
   #dock { max-height: 72vh; }
 }
@@ -268,13 +275,14 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="middleearth.js"></script>
 <script src="usa.js"></script>
 <script src="water.js"></script>
+<script src="sights.js"></script>
 <script src="images.js"></script>
 <script>
 "use strict";
 const DATA = window.BLANK_MAP_DATA;
 const EARTH_KM = 6371;
 const ROUND_LENGTH = 15;
-const KINDS = ["country", "capital", "flag", "mountain", "river", "water"];
+const KINDS = ["country", "capital", "flag", "mountain", "river", "water", "sight"];
 const QUIZ = window.BLANK_MAP_QUIZ;
 /* The tiers each level draws from, most wanted first. Easy never reaches the hardest tier. */
 const LEVELS = { easy: [1, 2], medium: [2, 1, 3], hard: [3, 2, 1] };
@@ -314,27 +322,27 @@ const kindsFor = world => KINDS.filter(k => world === "earth" || (k !== "flag" &
 /* ---------- Language ---------- */
 const STRINGS = {
   en: {
-    kinds: { country: "Countries", capital: "Capitals", flag: "Flags", mountain: "Mountains", river: "Rivers", water: "Oceans & lakes" },
+    kinds: { country: "Countries", capital: "Capitals", flag: "Flags", mountain: "Mountains", river: "Rivers", water: "Oceans & lakes", sight: "Sights" },
     levels: { easy: "Easy", medium: "Medium", hard: "Hard" },
-    one: { country: "Country", capital: "Capital city", flag: "Flag", mountain: "Mountain", river: "River", water: "Ocean, sea or lake" },
+    one: { country: "Country", capital: "Capital city", flag: "Flag", mountain: "Mountain", river: "River", water: "Ocean, sea or lake", sight: "Sight" },
     findFlag: "Find the country with this flag", flagAlt: "The flag to identify",
-    nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river", water: "Name this ocean, sea or lake" },
+    nameThis: { country: "Name this country", capital: "Name this capital city", flag: "Which country has this flag?", mountain: "Name this mountain", river: "Name this river", water: "Name this ocean, sea or lake", sight: "Which sight is this?" },
     regions: { World: "World", Oceans: "Oceans", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
       "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South",
       USA: "All states", Northeast: "Northeast", Midwest: "Midwest", South: "South", West: "West" },
     legendMap: "Map", worlds: { earth: "Earth", usa: "USA", middle: "Middle-earth" }, meRiver: "About {km} km long.",
     usa: {
-      kinds: { country: "States", capital: "Capitals", mountain: "Mountains", river: "Rivers" },
-      one: { country: "State", capital: "State capital", mountain: "Mountain", river: "River" },
-      nameThis: { country: "Name this state", capital: "Name this state capital", mountain: "Name this mountain", river: "Name this river" },
+      kinds: { country: "States", capital: "Capitals", mountain: "Mountains", river: "Rivers", sight: "Sights" },
+      one: { country: "State", capital: "State capital", mountain: "Mountain", river: "River", sight: "Sight" },
+      nameThis: { country: "Name this state", capital: "Name this state capital", mountain: "Name this mountain", river: "Name this river", sight: "Which sight is this?" },
       hintCountry: "Your click on a state is your answer. Scroll or pinch to zoom.", rightCountry: "You coloured in the right state.",
       intro: "Name the states, state capitals, mountains and rivers of the United States, or find them on an unlabelled map.",
       credit: "Map data: US Census Bureau via us-atlas, and Natural Earth, both public domain. Alaska and Hawaii are moved into boxes, and Alaska is shrunk.",
     },
     middle: {
-      kinds: { country: "Lands", capital: "Places", mountain: "Mountains", river: "Rivers" },
-      one: { country: "Land", capital: "Place", mountain: "Mountain", river: "River" },
-      nameThis: { country: "Name this land", capital: "Name this place", mountain: "Name this mountain", river: "Name this river" },
+      kinds: { country: "Lands", capital: "Places", mountain: "Mountains", river: "Rivers", sight: "Sights" },
+      one: { country: "Land", capital: "Place", mountain: "Mountain", river: "River", sight: "Sight" },
+      nameThis: { country: "Name this land", capital: "Name this place", mountain: "Name this mountain", river: "Name this river", sight: "Name this sight" },
       intro: "Name the lands, places, mountains and rivers of Middle-earth, or find them on an unlabelled map.",
       credit: "Middle-earth was created by J.R.R. Tolkien. This map is drawn by hand for the game and only roughly follows his. An unofficial fan work, not endorsed by the Tolkien Estate.",
     },
@@ -361,7 +369,7 @@ const STRINGS = {
     quit: "Quit", ended: "Round ended after {n} of {total} questions.",
     musicOn: "♪ On", musicOff: "♪ Off", musicLabel: "Background music", volumeLabel: "Music volume",
     effectsOn: "Sounds: on", effectsOff: "Sounds: off", effectsLabel: "Sound effects for right and wrong answers",
-    photoBy: "Photo: {by}, {license}, via Wikimedia Commons.",
+    photoBy: "Photo: {by}, {license}, via Wikimedia Commons.", photoAlt: "The sight to identify",
     factsHint: "Point at or tap the name for more facts.", legendRight: "Right", legendChosen: "Wrong choice", legendMissed: "Missed",
     zoomIn: "Zoom in", zoomOut: "Zoom out", home: "Show the whole region", language: "Language", map: "World map",
     login: "Log in", register: "Create profile", logout: "Log out", back: "Back", profile: "Your profile",
@@ -383,27 +391,27 @@ const STRINGS = {
     unsaved: "{n} answers couldn't be saved to your profile.", profileError: "Couldn't load your profile.",
   },
   de: {
-    kinds: { country: "Länder", capital: "Hauptstädte", flag: "Flaggen", mountain: "Berge", river: "Flüsse", water: "Meere & Seen" },
+    kinds: { country: "Länder", capital: "Hauptstädte", flag: "Flaggen", mountain: "Berge", river: "Flüsse", water: "Meere & Seen", sight: "Sehenswürdigkeiten" },
     levels: { easy: "Leicht", medium: "Mittel", hard: "Schwer" },
-    one: { country: "Land", capital: "Hauptstadt", flag: "Flagge", mountain: "Berg", river: "Fluss", water: "Ozean, Meer oder See" },
+    one: { country: "Land", capital: "Hauptstadt", flag: "Flagge", mountain: "Berg", river: "Fluss", water: "Ozean, Meer oder See", sight: "Sehenswürdigkeit" },
     findFlag: "Finde das Land mit dieser Flagge", flagAlt: "Die gesuchte Flagge",
-    nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", water: "Wie heißt dieses Gewässer?" },
+    nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt diese Hauptstadt?", flag: "Zu welchem Land gehört diese Flagge?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", water: "Wie heißt dieses Gewässer?", sight: "Welche Sehenswürdigkeit ist das?" },
     regions: { World: "Welt", Oceans: "Ozeane", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
       "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden",
       USA: "Alle Staaten", Northeast: "Nordosten", Midwest: "Mittlerer Westen", South: "Süden", West: "Westen" },
     legendMap: "Karte", worlds: { earth: "Erde", usa: "USA", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
     usa: {
-      kinds: { country: "Staaten", capital: "Hauptstädte", mountain: "Berge", river: "Flüsse" },
-      one: { country: "Bundesstaat", capital: "Hauptstadt eines Bundesstaats", mountain: "Berg", river: "Fluss" },
-      nameThis: { country: "Wie heißt dieser Bundesstaat?", capital: "Wie heißt diese Hauptstadt?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
+      kinds: { country: "Staaten", capital: "Hauptstädte", mountain: "Berge", river: "Flüsse", sight: "Sehenswürdigkeiten" },
+      one: { country: "Bundesstaat", capital: "Hauptstadt eines Bundesstaats", mountain: "Berg", river: "Fluss", sight: "Sehenswürdigkeit" },
+      nameThis: { country: "Wie heißt dieser Bundesstaat?", capital: "Wie heißt diese Hauptstadt?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", sight: "Welche Sehenswürdigkeit ist das?" },
       hintCountry: "Dein Klick auf einen Bundesstaat ist deine Antwort. Scrolle oder ziehe mit zwei Fingern zum Zoomen.", rightCountry: "Du hast den richtigen Bundesstaat eingefärbt.",
       intro: "Benenne die Bundesstaaten, Hauptstädte, Berge und Flüsse der USA oder finde sie auf einer unbeschrifteten Karte.",
       credit: "Kartendaten: US Census Bureau über us-atlas und Natural Earth, beide gemeinfrei. Alaska und Hawaii sind in Kästen verschoben, Alaska ist verkleinert.",
     },
     middle: {
-      kinds: { country: "Länder", capital: "Orte", mountain: "Berge", river: "Flüsse" },
-      one: { country: "Land", capital: "Ort", mountain: "Berg", river: "Fluss" },
-      nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt dieser Ort?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?" },
+      kinds: { country: "Länder", capital: "Orte", mountain: "Berge", river: "Flüsse", sight: "Sehenswürdigkeiten" },
+      one: { country: "Land", capital: "Ort", mountain: "Berg", river: "Fluss", sight: "Sehenswürdigkeit" },
+      nameThis: { country: "Wie heißt dieses Land?", capital: "Wie heißt dieser Ort?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", sight: "Wie heißt diese Sehenswürdigkeit?" },
       intro: "Benenne die Länder, Orte, Berge und Flüsse Mittelerdes oder finde sie auf einer unbeschrifteten Karte.",
       credit: "Mittelerde wurde von J.R.R. Tolkien erschaffen. Diese Karte ist für das Spiel von Hand gezeichnet und folgt seiner nur grob. Ein inoffizielles Fanprojekt, nicht vom Tolkien Estate unterstützt.",
     },
@@ -430,7 +438,7 @@ const STRINGS = {
     quit: "Beenden", ended: "Runde nach {n} von {total} Fragen beendet.",
     musicOn: "♪ An", musicOff: "♪ Aus", musicLabel: "Hintergrundmusik", volumeLabel: "Musiklautstärke",
     effectsOn: "Töne: an", effectsOff: "Töne: aus", effectsLabel: "Töne für richtige und falsche Antworten",
-    photoBy: "Foto: {by}, {license}, über Wikimedia Commons.",
+    photoBy: "Foto: {by}, {license}, über Wikimedia Commons.", photoAlt: "Die gesuchte Sehenswürdigkeit",
     factsHint: "Zeig auf den Namen oder tippe ihn an, um mehr Fakten zu sehen.", legendRight: "Richtig", legendChosen: "Falsch gewählt", legendMissed: "Verpasst",
     zoomIn: "Vergrößern", zoomOut: "Verkleinern", home: "Ganze Region zeigen", language: "Sprache", map: "Weltkarte",
     login: "Anmelden", register: "Profil erstellen", logout: "Abmelden", back: "Zurück", profile: "Dein Profil",
@@ -615,6 +623,7 @@ const middleItem = (kind, p, geo, full, zero, fact) => ITEMS.push({ world: "midd
   region: p.area, tier: p.tier, facts: p.facts, geo, full, zero, fact: fact || (() => `${S().regions[p.area]}.`) });
 for (const p of MIDDLE.places) middleItem("capital", p, { type: "Point", coordinates: meLonLat(p.at) }, 25, 350);
 for (const m of MIDDLE.mountains) middleItem("mountain", m, { type: "Point", coordinates: meLonLat(m.at) }, 30, 450);
+for (const s of MIDDLE.sights) middleItem("sight", s, { type: "Point", coordinates: meLonLat(s.at) }, 25, 350);
 for (const r of MIDDLE.rivers) {
   const geo = { type: "MultiLineString", coordinates: [r.line.map(meLonLat)] };
   const km = d3.geoLength(geo) * EARTH_KM;
@@ -673,6 +682,29 @@ for (const r of USA.rivers) ITEMS.push({ world: "usa", kind: "river", names: { e
   geo: { type: "MultiLineString", coordinates: r.lines.map(line => line.map(usaInset)) }, full: 20, zero: 500, fact: () => `${S().regions[r.region]}.` });
 
 /* Everything a click can colour in: quiz countries, plus territories such as Greenland that aren't asked about. */
+/* Sights on Earth and in the USA. Their photo is the question when naming them, so only sights with a photo are used. */
+const SIGHTS = window.BLANK_MAP_SIGHTS || {};
+for (const [world, sights] of Object.entries(SIGHTS)) {
+  for (const s of sights) {
+    if (!photoFor({ world, kind: "sight", names: { en: s.en } })) continue;
+    const at = world === "usa" ? usaInset(s.at) : s.at;
+    const item = { world, kind: "sight", names: { en: s.en, de: s.de }, aliases: s.aliases, region: s.region, tier: s.tier, facts: s.facts,
+      geo: { type: "Point", coordinates: at }, full: 25, zero: s.zero };
+    /* The country or state comes from the sight list: bridges and bays often lie just off the map's simplified coastlines. */
+    const home = s.home.split("|")[0] || null;
+    if (world === "usa") {
+      item.state = home;
+      item.fact = () => `${home}.`;
+    } else {
+      item.country = home;
+      item.fact = () => {
+        const country = home && ITEMS.find(i => i.kind === "country" && i.world === "earth" && i.names.en === home);
+        return `${country ? label(country) + ". " : ""}${S().regions[item.region]}.`;
+      };
+    }
+    ITEMS.push(item);
+  }
+}
 const claimed = new Set(DATA.countries.flatMap(c => [c.shape, ...c.extra]));
 const quizCountries = ITEMS.filter(i => i.kind === "country");
 const HITS = [
@@ -877,12 +909,14 @@ function redrawLabels() {
   const groups = labelLayer.selectAll("g").data(data).join(enter => {
     const g = enter.append("g").attr("class", "map-label");
     g.append("circle");
+    g.append("path").attr("class", "label-sight");
     g.append("text");
     return g;
   });
   groups.attr("transform", sizedToScreen);
-  groups.select("circle").attr("r", d => d.item.geo.type === "Point" ? 3 : 0);
-  groups.select("text").attr("y", d => d.item.geo.type === "Point" ? -8 : 5).text(d => label(d.item));
+  groups.select("circle").attr("r", d => d.item.geo.type === "Point" && d.item.kind !== "sight" ? 3 : 0);
+  groups.select("path").attr("d", d => d.item.kind === "sight" ? SIGHT_ICON : null).attr("transform", "scale(.75)");
+  groups.select("text").attr("y", d => d.item.kind === "sight" ? -11 : d.item.geo.type === "Point" ? -8 : 5).text(d => label(d.item));
   groups.each(function (d) { d.box = this.querySelector("text").getBBox(); });
   declutterLabels();
 }
@@ -988,6 +1022,9 @@ function addMarker(lonLat, draw) {
 const drawDot = g => g.append("circle").attr("class", "m-dot").attr("r", 6);
 const drawPeak = g => g.append("path").attr("class", "m-peak").attr("d", "M0,-10L9,6L-9,6Z");
 const drawRing = g => g.append("circle").attr("class", "m-ring").attr("r", 13);
+/* A small temple: roof, three columns and a step. */
+const SIGHT_ICON = "M0,-9L10,-3H-10Z M-8,-2H-5V4H-8Z M-1.5,-2H1.5V4H-1.5Z M5,-2H8V4H5Z M-10,5H10V8H-10Z";
+const drawSight = g => g.append("path").attr("class", "m-sight").attr("d", SIGHT_ICON).attr("transform", "scale(1.3)");
 function drawPin(g) {
   g.append("circle").attr("class", "m-pin-halo").attr("r", 9);
   g.append("circle").attr("class", "m-pin").attr("r", 9);
@@ -1004,7 +1041,7 @@ function highlight(item, targetK) {
     if (game.hiddenGuess === item.geo || !game.guessed.has(item.geo)) overlay.append("path").attr("class", "hl-area").attr("d", geoPath(item.geo));
     if (Math.sqrt(geoPath.area(item.geo)) * targetK < 16) addMarker(d3.geoCentroid(item.geo), drawRing);
   } else {
-    addMarker(item.geo.coordinates, item.kind === "mountain" ? drawPeak : drawDot);
+    addMarker(item.geo.coordinates, item.kind === "mountain" ? drawPeak : item.kind === "sight" ? drawSight : drawDot);
   }
 }
 /* Question view for "Name it": the place in context, with enough surroundings to reason from. */
@@ -1129,13 +1166,17 @@ const ME_ART = (() => {
 })();
 const ME_ART_FOR = Object.fromEntries(Object.entries(MIDDLE.art).flatMap(([art, names]) => names.map(n => [n, art])));
 /* Countries and capitals show their country's flag, US states and capitals their state's. */
+/* Sights on Earth and in the USA are named from their photo, not from a spot on the map. */
+function photoClue(item) {
+  return item.kind === "sight" && item.world !== "middle" && !!photoFor(item);
+}
 function flagFor(item) {
   if (item.world === "earth") {
-    const country = item.kind === "capital" ? item.country : isCountryLike(item) ? item.names.en : null;
+    const country = item.kind === "capital" || item.kind === "sight" ? item.country : isCountryLike(item) ? item.names.en : null;
     return country && QUIZ.flags[country] ? `flags/${QUIZ.flags[country]}.svg` : null;
   }
   if (item.world === "usa") {
-    const state = item.kind === "capital" ? item.state : item.kind === "country" ? item.names.en : null;
+    const state = item.kind === "capital" || item.kind === "sight" ? item.state : item.kind === "country" ? item.names.en : null;
     return (window.BLANK_MAP_IMAGES?.usa?.flag?.[state] || {}).src || null;
   }
   return null;
@@ -1287,7 +1328,10 @@ function renderSetup() {
 }
 function startRound() {
   game.round = pickRound(kindsFor(currentWorld()).filter(k => settings.kinds.has(k)), settings.region, settings.type, settings.level);
-  for (const q of game.round) if (q.item.flag) new Image().src = q.item.flag;
+  for (const q of game.round) {
+    if (q.item.flag) new Image().src = q.item.flag;
+    if (photoClue(q.item)) new Image().src = photoFor(q.item).src;
+  }
   game.index = 0; game.total = 0;
   game.roundId = newRoundId();
   game.unsaved = 0;
@@ -1304,7 +1348,10 @@ function statusBar(q) {
 function questionDock() {
   const s = S();
   const q = game.round[game.index];
-  const flag = q.item.flag ? `<img class="flag-q" src="${q.item.flag}" alt="${s.flagAlt}">` : "";
+  const clue = q.mode === "name" && photoClue(q.item) ? photoFor(q.item) : null;
+  const flag = q.item.flag ? `<img class="flag-q" src="${q.item.flag}" alt="${s.flagAlt}">`
+    : clue ? `<figure class="sight-q"><img src="${esc(clue.src)}" width="${clue.w}" height="${clue.h}" alt="${s.photoAlt}">
+      <figcaption>${esc(fill(s.photoBy, { by: clue.by, license: clue.license }))}</figcaption></figure>` : "";
   if (q.mode === "find") {
     const countryLike = isCountryLike(q.item);
     const hint = countryLike ? W("hintCountry") : s.hintPin;
@@ -1341,7 +1388,7 @@ function renderQuestion() {
   const answerBox = document.getElementById("answer");
   if (answerBox) answerBox.value = "";
   questionDock();
-  if (q.mode === "find" || q.item.flag) {
+  if (q.mode === "find" || q.item.flag || photoClue(q.item)) {
     clearMarks();
     svg.classed("placing", q.mode === "find");
     showRegion(settings.region);

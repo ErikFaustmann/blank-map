@@ -27,6 +27,8 @@ KEYWORDS = {
     "mountain": r"mountain|peak|volcano|summit|massif|hill|dome|monolith|monument|memorial|point",
     "river": r"river|waterway|stream|tributary",
     "state": r"state",
+    # Sights are described in every way imaginable, from "tower in Paris" to "national park", so any page will do.
+    "sight": r".",
     "water": r"ocean|sea|lake|gulf|bay|bight|strait|channel|passage|estuary|reservoir|body of water",
 }
 # Article titles where the plain name finds the wrong page.
@@ -96,6 +98,10 @@ def places():
         out.append(("usa", "capital", c, [f"{c}, {s['en']}", c]))
     for w in load_js("water.js")["waters"]:
         out.append(("earth", "water", w["en"], [w["en"]]))
+    sights = load_js("sights.js") if (ROOT / "sights.js").exists() else {}
+    for world, entries in sights.items():
+        for x in entries:
+            out.append((world, "sight", x["en"], [x["title"]]))
     for m in usa["mountains"]:
         out.append(("usa", "mountain", m["en"], [m["en"], f"{m['en']} (mountain)"]))
     for r in usa["rivers"]:
