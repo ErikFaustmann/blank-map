@@ -273,6 +273,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 <script src="data.js"></script>
 <script src="facts.js"></script>
+<script src="morefacts.js"></script>
 <script src="quiz.js"></script>
 <script src="middleearth.js"></script>
 <script src="usa.js"></script>
@@ -792,7 +793,7 @@ function pickRound(kinds, region, type, level) {
 }
 
 /* ---------- Map ---------- */
-const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null, guessed: new Map(), rightItems: new Map(), hiddenGuess: null, mapFact: null };
+const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "setup", drawDock: null, guessed: new Map(), rightItems: new Map(), factPicks: new Map(), hiddenGuess: null, mapFact: null };
 const svg = d3.select("#map");
 const zoomLayer = svg.append("g");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1140,10 +1141,21 @@ document.getElementById("zoom-home").onclick = () => activeView && activeView();
 const dock = document.getElementById("dock");
 const factPop = document.getElementById("fact-pop");
 /* Each place has [English facts, German facts], keyed by its English name. */
+/* Every fact a place has: its own two plus the extra ones, in the current language. */
+function allFacts(item) {
+  const kind = item.kind === "flag" ? "country" : item.kind, side = lang === "de" ? 1 : 0;
+  const own = item.facts || (window.BLANK_MAP_FACTS || {})[kind]?.[item.names.en];
+  const more = (window.BLANK_MAP_MORE_FACTS || {})[`${item.world}/${kind}/${item.names.en}`];
+  return [...(own ? own[side] : []), ...(more ? more[side] : [])];
+}
+/* Two facts at random, picked once per place and round, so the box doesn't change while the pointer moves.
+   Both languages hold the same facts in the same order, so switching language keeps the same two. */
 function factsFor(item) {
-  if (item.facts) return item.facts[lang === "de" ? 1 : 0];
-  const row = (window.BLANK_MAP_FACTS || {})[item.kind === "flag" ? "country" : item.kind]?.[item.names.en];
-  return row ? row[lang === "de" ? 1 : 0] : [];
+  const all = allFacts(item);
+  if (all.length <= 2) return all;
+  const key = item.kind === "flag" ? item.geo : item;
+  if (!game.factPicks.has(key)) game.factPicks.set(key, d3.shuffle(d3.range(all.length)).slice(0, 2).sort((a, b) => a - b));
+  return game.factPicks.get(key).map(i => all[i]);
 }
 /* ---------- Pictures ---------- */
 /* Earth and USA places show a freely licensed Wikimedia photo, with its credit. The game only knows the address,
@@ -1346,6 +1358,7 @@ function renderSetup() {
   showRegion(settings.region);
 }
 function startRound() {
+  game.factPicks.clear();
   game.round = pickRound(kindsFor(currentWorld()).filter(k => settings.kinds.has(k)), settings.region, settings.type, settings.level);
   for (const q of game.round) {
     if (q.item.flag) new Image().src = q.item.flag;

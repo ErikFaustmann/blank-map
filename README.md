@@ -85,6 +85,12 @@ Everyone who runs their own copy has their own separate profiles. To share profi
 
 Facts about each place live in `facts.js`, which you can edit directly.
 
+Every place has 8 facts, and each round shows 2 of them at random. The extra ones live in `tools/more_facts/`, one JSON file per group, and `tools/build_more_facts.py` merges them into `morefacts.js`:
+
+```
+python tools/build_more_facts.py
+```
+
 Flag codes and the easy and hard lists live in `quiz.js`.
 
 The USA's states, capitals, mountains, rivers and facts live in `tools/usa_content.py`. `tools/build_usa.py` joins them with the map data and writes `usa.js`. It needs these downloads in one folder:
