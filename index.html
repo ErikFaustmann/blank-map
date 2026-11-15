@@ -278,6 +278,7 @@ legend { padding: 0; margin-bottom: 5px; font: 600 15px/1.2 var(--display); lett
 <script src="middleearth.js"></script>
 <script src="usa.js"></script>
 <script src="austria.js"></script>
+<script src="germany.js"></script>
 <script src="water.js"></script>
 <script src="sights.js"></script>
 <script src="images.js"></script>
@@ -326,10 +327,21 @@ Object.assign(REGIONS, {
   "Southern Austria": { world: "austria", rotate: -13.3, box: [12.6, 46.35, 16.2, 47.85] },
   "Eastern Austria": { world: "austria", rotate: -13.3, box: [14.4, 46.8, 17.2, 49.05] },
 });
-const ROOTS = { earth: "World", usa: "USA", middle: "Middle-earth", austria: "Austria" };
+/* Germany works like Austria, centred on 10.5° E, with four regions of its own. */
+const GERMANY = window.BLANK_MAP_GERMANY;
+REGIONS.Germany = { world: "germany", all: true, rotate: -10.5, box: [5.85, 47.27, 15.05, 55.06] };
+Object.assign(REGIONS, {
+  "Northern Germany": { world: "germany", rotate: -10.5, box: [6.66, 51.29, 14.4, 55.06] },
+  "Eastern Germany": { world: "germany", rotate: -10.5, box: [9.88, 50.16, 15.05, 53.56] },
+  "Southern Germany": { world: "germany", rotate: -10.5, box: [7.5, 47.27, 13.85, 50.57] },
+  "Western Germany": { world: "germany", rotate: -10.5, box: [5.85, 48.96, 10.25, 52.53] },
+});
+/* Austria and Germany are built the same way, from their own data file. */
+const COUNTRIES = { austria: AUSTRIA, germany: GERMANY };
+const ROOTS = { earth: "World", usa: "USA", middle: "Middle-earth", austria: "Austria", germany: "Germany" };
 function currentWorld() { return REGIONS[settings.region].world; }
-/* Flags are only asked about on Earth, and waters on Earth and in Austria, where they are lakes. */
-const kindsFor = world => KINDS.filter(k => world === "earth" || (k !== "flag" && (k !== "water" || world === "austria")));
+/* Flags are only asked about on Earth, and waters on Earth and in Austria and Germany, where they are lakes. */
+const kindsFor = world => KINDS.filter(k => world === "earth" || (k !== "flag" && (k !== "water" || world in COUNTRIES)));
 
 /* ---------- Language ---------- */
 const STRINGS = {
@@ -342,8 +354,9 @@ const STRINGS = {
     regions: { World: "World", Oceans: "Oceans", Africa: "Africa", Asia: "Asia", Europe: "Europe", "North America": "North America", "South America": "South America", Oceania: "Oceania", Antarctica: "Antarctica",
       "Middle-earth": "All of Middle-earth", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "The South",
       USA: "All states", Northeast: "Northeast", Midwest: "Midwest", South: "South", West: "West",
-      Austria: "All of Austria", "Western Austria": "West", "Southern Austria": "South", "Eastern Austria": "East" },
-    legendMap: "Map", worlds: { earth: "Earth", usa: "USA", austria: "Austria", middle: "Middle-earth" }, meRiver: "About {km} km long.",
+      Austria: "All of Austria", "Western Austria": "West", "Southern Austria": "South", "Eastern Austria": "East",
+      Germany: "All of Germany", "Northern Germany": "North", "Eastern Germany": "East", "Southern Germany": "South", "Western Germany": "West" },
+    legendMap: "Map", worlds: { earth: "Earth", usa: "USA", austria: "Austria", germany: "Germany", middle: "Middle-earth" }, meRiver: "About {km} km long.",
     usa: {
       kinds: { country: "States", capital: "Capitals", mountain: "Mountains", river: "Rivers", sight: "Sights" },
       one: { country: "State", capital: "State capital", mountain: "Mountain", river: "River", sight: "Sight" },
@@ -360,6 +373,15 @@ const STRINGS = {
       intro: "Name Austria's states, cities, mountains, rivers and lakes, or find them on an unlabelled map.",
       credit: "Map data: Natural Earth (public domain) and © OpenStreetMap contributors (ODbL). Positions and heights from Wikidata.",
       capital: "Capital of Austria.", stateCapital: "Capital of {name}.", inState: "In {name}.",
+    },
+    germany: {
+      kinds: { country: "States", capital: "Cities", mountain: "Mountains", river: "Rivers", water: "Lakes", sight: "Sights" },
+      one: { country: "State", capital: "City", mountain: "Mountain", river: "River", water: "Lake", sight: "Sight" },
+      nameThis: { country: "Name this state", capital: "Name this city", mountain: "Name this mountain", river: "Name this river", water: "Name this lake", sight: "Which sight is this?" },
+      hintCountry: "Your click on a state is your answer. Scroll or pinch to zoom.", rightCountry: "You coloured in the right state.",
+      intro: "Name Germany's states, cities, mountains, rivers and lakes, or find them on an unlabelled map.",
+      credit: "Map data: Natural Earth (public domain) and © OpenStreetMap contributors (ODbL). Positions and heights from Wikidata.",
+      capital: "Capital of Germany.", stateCapital: "Capital of {name}.", inState: "In {name}.",
     },
     middle: {
       kinds: { country: "Lands", capital: "Places", mountain: "Mountains", river: "Rivers", sight: "Sights" },
@@ -421,8 +443,9 @@ const STRINGS = {
     regions: { World: "Welt", Oceans: "Ozeane", Africa: "Afrika", Asia: "Asien", Europe: "Europa", "North America": "Nordamerika", "South America": "Südamerika", Oceania: "Ozeanien", Antarctica: "Antarktika",
       "Middle-earth": "Ganz Mittelerde", Eriador: "Eriador", Rhovanion: "Rhovanion", Southlands: "Der Süden",
       USA: "Alle Staaten", Northeast: "Nordosten", Midwest: "Mittlerer Westen", South: "Süden", West: "Westen",
-      Austria: "Ganz Österreich", "Western Austria": "Westen", "Southern Austria": "Süden", "Eastern Austria": "Osten" },
-    legendMap: "Karte", worlds: { earth: "Erde", usa: "USA", austria: "Österreich", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
+      Austria: "Ganz Österreich", "Western Austria": "Westen", "Southern Austria": "Süden", "Eastern Austria": "Osten",
+      Germany: "Ganz Deutschland", "Northern Germany": "Norden", "Eastern Germany": "Osten", "Southern Germany": "Süden", "Western Germany": "Westen" },
+    legendMap: "Karte", worlds: { earth: "Erde", usa: "USA", austria: "Österreich", germany: "Deutschland", middle: "Mittelerde" }, meRiver: "Rund {km} km lang.",
     usa: {
       kinds: { country: "Staaten", capital: "Hauptstädte", mountain: "Berge", river: "Flüsse", sight: "Sehenswürdigkeiten" },
       one: { country: "Bundesstaat", capital: "Hauptstadt eines Bundesstaats", mountain: "Berg", river: "Fluss", sight: "Sehenswürdigkeit" },
@@ -439,6 +462,15 @@ const STRINGS = {
       intro: "Benenne Österreichs Bundesländer, Städte, Berge, Flüsse und Seen oder finde sie auf einer unbeschrifteten Karte.",
       credit: "Kartendaten: Natural Earth (gemeinfrei) und © OpenStreetMap-Mitwirkende (ODbL). Lagen und Höhen von Wikidata.",
       capital: "Hauptstadt Österreichs.", stateCapital: "Landeshauptstadt von {name}.", inState: "In {name}.",
+    },
+    germany: {
+      kinds: { country: "Bundesländer", capital: "Städte", mountain: "Berge", river: "Flüsse", water: "Seen", sight: "Sehenswürdigkeiten" },
+      one: { country: "Bundesland", capital: "Stadt", mountain: "Berg", river: "Fluss", water: "See", sight: "Sehenswürdigkeit" },
+      nameThis: { country: "Wie heißt dieses Bundesland?", capital: "Wie heißt diese Stadt?", mountain: "Wie heißt dieser Berg?", river: "Wie heißt dieser Fluss?", water: "Wie heißt dieser See?", sight: "Welche Sehenswürdigkeit ist das?" },
+      hintCountry: "Dein Klick auf ein Bundesland ist deine Antwort. Scrolle oder ziehe mit zwei Fingern zum Zoomen.", rightCountry: "Du hast das richtige Bundesland eingefärbt.",
+      intro: "Benenne Deutschlands Bundesländer, Städte, Berge, Flüsse und Seen oder finde sie auf einer unbeschrifteten Karte.",
+      credit: "Kartendaten: Natural Earth (gemeinfrei) und © OpenStreetMap-Mitwirkende (ODbL). Lagen und Höhen von Wikidata.",
+      capital: "Hauptstadt Deutschlands.", stateCapital: "Landeshauptstadt von {name}.", inState: "In {name}.",
     },
     middle: {
       kinds: { country: "Länder", capital: "Orte", mountain: "Berge", river: "Flüsse", sight: "Sehenswürdigkeiten" },
@@ -501,7 +533,7 @@ const S = () => STRINGS[lang];
 const fill = (text, vars = {}) => text.replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 const num = n => Math.round(n).toLocaleString(lang);
 const label = item => item.names[lang];
-/* The USA, Austria and Middle-earth have their own words for a few things, like states or lands instead of countries. */
+/* The USA, Austria, Germany and Middle-earth have their own words for a few things, like states or lands instead of countries. */
 const W = (key, world = currentWorld()) => (S()[world] && S()[world][key]) || S()[key];
 
 /* ---------- Content ---------- */
@@ -517,8 +549,8 @@ function countryGeometry(c) {
 function areaKm2(geo) { return d3.geoArea(geo) * EARTH_KM * EARTH_KM; }
 function roundArea(km2) {
   if (km2 >= 1e6) return `${(km2 / 1e6).toLocaleString(lang, { maximumFractionDigits: 1 })} ${S().million}`;
-  /* Small lakes and countries round to the hundred, so they don't all come out as 1,000 km². */
-  const step = km2 < 10000 ? 100 : 1000;
+  /* Small lakes and countries round more finely, so they don't all come out as 100 or 1,000 km². */
+  const step = km2 < 100 ? 1 : km2 < 1000 ? 10 : km2 < 10000 ? 100 : 1000;
   return `${num(Math.max(step, Math.round(km2 / step) * step))} km²`;
 }
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -713,44 +745,48 @@ for (const m of USA.mountains) {
 for (const r of USA.rivers) ITEMS.push({ world: "usa", kind: "river", names: { en: r.en, de: r.de }, aliases: r.aliases, region: r.region, tier: r.tier, facts: r.facts,
   geo: { type: "MultiLineString", coordinates: r.lines.map(line => line.map(usaInset)) }, full: 20, zero: 500, fact: () => `${S().regions[r.region]}.` });
 
-/* ---------- Austria ---------- */
-/* Natural Earth winds its outlines the other way round from d3, so each part is turned the right way first. */
-const austria = (() => {
-  const states = AUSTRIA.states.map(s => ({ type: "Feature", properties: { name: s.en }, geometry: { type: "MultiPolygon", coordinates: s.geo.coordinates.map(turnRight) } }));
+/* ---------- Austria and Germany ---------- */
+/* Natural Earth winds its outlines the other way round from d3, so each part is turned the right way first.
+   Germany is bigger than Austria, so its cities, peaks and rivers allow a bit more distance. */
+const countryMaps = {};
+for (const [world, data] of Object.entries(COUNTRIES)) {
+  const reach = { austria: 1, germany: 1.25 }[world];
+  const states = data.states.map(s => ({ type: "Feature", properties: { name: s.en }, geometry: { type: "MultiPolygon", coordinates: s.geo.coordinates.map(turnRight) } }));
   /* Every state's outline: shared borders are drawn twice, on top of each other, and the outer one follows the coast of the land. */
-  const border = { type: "MultiLineString", coordinates: AUSTRIA.states.flatMap(s => s.geo.coordinates.flat()) };
-  const lakes = { type: "MultiPolygon", coordinates: AUSTRIA.lakes.flatMap(l => l.shape.map(turnRight)) };
-  return { states, border, lakes, land: { type: "FeatureCollection", features: states } };
-})();
-const austriaState = name => ITEMS.find(i => i.world === "austria" && i.kind === "country" && i.names.en === name);
-const austriaRegion = name => AUSTRIA.states.find(s => s.en === name).region;
-for (const s of AUSTRIA.states) {
-  const geo = austria.states.find(f => f.properties.name === s.en).geometry;
-  const size = Math.sqrt(areaKm2(geo));
-  ITEMS.push({ world: "austria", kind: "country", names: { en: s.en, de: s.de }, aliases: s.aliases, region: s.region, tier: s.tier, facts: s.facts,
-    geo, size, full: 10, zero: clamp(1.2 * size, 60, 250),
-    fact: () => {
-      const capital = ITEMS.find(i => i.world === "austria" && i.kind === "capital" && i.names.en === s.capital);
-      return `${fill(S().factCapital, { name: label(capital) })} ${fill(S().about, { area: roundArea(size * size) })}`;
-    } });
-}
-for (const c of AUSTRIA.cities) ITEMS.push({ world: "austria", kind: "capital", state: c.state, names: { en: c.en, de: c.de }, aliases: c.aliases,
-  region: austriaRegion(c.state), tier: c.tier, facts: c.facts, geo: { type: "Point", coordinates: c.at }, full: 8, zero: 80,
-  fact: () => c.en === "Vienna" ? S().austria.capital : fill(c.capital ? S().austria.stateCapital : S().austria.inState, { name: label(austriaState(c.state)) }) });
-for (const m of AUSTRIA.mountains) ITEMS.push({ world: "austria", kind: "mountain", state: m.state, names: { en: m.en, de: m.de }, aliases: m.aliases,
-  region: austriaRegion(m.state), tier: m.tier, facts: m.facts, geo: { type: "Point", coordinates: m.at }, full: 10, zero: 100,
-  fact: () => `${num(m.elevation)} m. ${label(austriaState(m.state))}.` });
-for (const r of AUSTRIA.rivers) ITEMS.push({ world: "austria", kind: "river", names: { en: r.en, de: r.de }, aliases: r.aliases, region: r.region, tier: r.tier,
-  facts: r.facts, geo: { type: "MultiLineString", coordinates: r.lines }, full: 8, zero: 120, fact: () => `${S().regions[r.region]}.` });
-for (const l of AUSTRIA.lakes) {
-  const geo = { type: "MultiPolygon", coordinates: l.shape.map(turnRight) };
-  const size = Math.sqrt(areaKm2(geo));
-  ITEMS.push({ world: "austria", kind: "water", names: { en: l.en, de: l.de }, aliases: l.aliases, region: l.region, tier: l.tier, facts: l.facts,
-    geo, size, full: 0, zero: clamp(4 * size, 40, 150), fact: () => `${S().regions[l.region]}. ${fill(S().about, { area: roundArea(size * size) })}` });
+  const border = { type: "MultiLineString", coordinates: data.states.flatMap(s => s.geo.coordinates.flat()) };
+  const lakes = { type: "MultiPolygon", coordinates: data.lakes.flatMap(l => l.shape.map(turnRight)) };
+  countryMaps[world] = { states, border, lakes, land: { type: "FeatureCollection", features: states } };
+  const stateItem = name => ITEMS.find(i => i.world === world && i.kind === "country" && i.names.en === name);
+  const regionOf = name => data.states.find(s => s.en === name).region;
+  const words = () => S()[world];
+  for (const s of data.states) {
+    const geo = states.find(f => f.properties.name === s.en).geometry;
+    const size = Math.sqrt(areaKm2(geo));
+    ITEMS.push({ world, kind: "country", names: { en: s.en, de: s.de }, aliases: s.aliases, region: s.region, tier: s.tier, facts: s.facts,
+      geo, size, full: 10, zero: clamp(1.2 * size, 60, 250),
+      fact: () => {
+        const capital = ITEMS.find(i => i.world === world && i.kind === "capital" && i.names.en === s.capital);
+        return `${fill(S().factCapital, { name: label(capital) })} ${fill(S().about, { area: roundArea(size * size) })}`;
+      } });
+  }
+  for (const c of data.cities) ITEMS.push({ world, kind: "capital", state: c.state, names: { en: c.en, de: c.de }, aliases: c.aliases,
+    region: regionOf(c.state), tier: c.tier, facts: c.facts, geo: { type: "Point", coordinates: c.at }, full: 8, zero: 80 * reach,
+    fact: () => c.national ? words().capital : fill(c.capital ? words().stateCapital : words().inState, { name: label(stateItem(c.state)) }) });
+  for (const m of data.mountains) ITEMS.push({ world, kind: "mountain", state: m.state, names: { en: m.en, de: m.de }, aliases: m.aliases,
+    region: regionOf(m.state), tier: m.tier, facts: m.facts, geo: { type: "Point", coordinates: m.at }, full: 10, zero: 100 * reach,
+    fact: () => `${num(m.elevation)} m. ${label(stateItem(m.state))}.` });
+  for (const r of data.rivers) ITEMS.push({ world, kind: "river", names: { en: r.en, de: r.de }, aliases: r.aliases, region: r.region, tier: r.tier,
+    facts: r.facts, geo: { type: "MultiLineString", coordinates: r.lines }, full: 8, zero: 120 * reach, fact: () => `${S().regions[r.region]}.` });
+  for (const l of data.lakes) {
+    const geo = { type: "MultiPolygon", coordinates: l.shape.map(turnRight) };
+    const size = Math.sqrt(areaKm2(geo));
+    ITEMS.push({ world, kind: "water", names: { en: l.en, de: l.de }, aliases: l.aliases, region: l.region, tier: l.tier, facts: l.facts,
+      geo, size, full: 0, zero: clamp(4 * size, 40, 150), fact: () => `${S().regions[l.region]}. ${fill(S().about, { area: roundArea(size * size) })}` });
+  }
 }
 
 /* Everything a click can colour in: quiz countries, plus territories such as Greenland that aren't asked about. */
-/* Sights on Earth, in the USA and in Austria. Their photo is the question when naming them, so only sights with a photo are used. */
+/* Sights on Earth, in the USA, Austria and Germany. Their photo is the question when naming them, so only sights with a photo are used. */
 const SIGHTS = window.BLANK_MAP_SIGHTS || {};
 for (const [world, sights] of Object.entries(SIGHTS)) {
   for (const s of sights) {
@@ -865,7 +901,8 @@ const game = { round: [], index: 0, total: 0, pick: null, hover: null, phase: "s
 const svg = d3.select("#map");
 const zoomLayer = svg.append("g");
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const PROJECTIONS = { earth: d3.geoNaturalEarth1(), usa: d3.geoConicEqualArea().parallels([29.5, 45.5]), austria: d3.geoConicEqualArea().parallels([46.5, 48.8]) };
+const PROJECTIONS = { earth: d3.geoNaturalEarth1(), usa: d3.geoConicEqualArea().parallels([29.5, 45.5]), austria: d3.geoConicEqualArea().parallels([46.5, 48.8]),
+  germany: d3.geoConicEqualArea().parallels([48, 54]) };
 PROJECTIONS.middle = PROJECTIONS.earth;
 let projection = PROJECTIONS.earth;
 const geoPath = d3.geoPath(projection);
@@ -893,7 +930,7 @@ const markers = zoomLayer.append("g");
 const riverHits = zoomLayer.append("g");
 const labelLayer = zoomLayer.append("g");
 let viewW = 0, viewH = 0, currentK = 1, homeRegion = "World", activeView = null, drawnWorld = null;
-const fitTarget = () => ({ middle: middle.frame, usa: usa.land, austria: austria.land })[currentWorld()] || { type: "Sphere" };
+const fitTarget = () => ({ middle: middle.frame, usa: usa.land, ...Object.fromEntries(Object.entries(countryMaps).map(([w, m]) => [w, m.land])) })[currentWorld()] || { type: "Sphere" };
 
 const sizedToScreen = d => `translate(${d.x},${d.y}) scale(${1 / currentK})`;
 /* A click now answers at once, so a hand that shifts by a pixel or two must still count as a click. */
@@ -912,12 +949,12 @@ function drawBase() {
   drawnWorld = currentWorld();
   svg.classed("middle", inMiddle);
   base.sphere.attr("d", geoPath(fitTarget()));
-  const inUsa = currentWorld() === "usa", inAustria = currentWorld() === "austria";
-  base.graticule.attr("d", inMiddle || inAustria ? null : geoPath(inUsa ? { type: "GeometryCollection", geometries: [graticule, usa.insets] } : graticule));
-  base.land.attr("d", geoPath(inMiddle ? middle.land : inUsa ? usa.land : inAustria ? austria.land : { type: "FeatureCollection", features: allFeatures }));
-  base.lakes.attr("d", inAustria ? geoPath(austria.lakes) : inMiddle || inUsa ? null : geoPath(lakeShapes));
+  const inUsa = currentWorld() === "usa", country = countryMaps[currentWorld()];
+  base.graticule.attr("d", inMiddle || country ? null : geoPath(inUsa ? { type: "GeometryCollection", geometries: [graticule, usa.insets] } : graticule));
+  base.land.attr("d", geoPath(inMiddle ? middle.land : inUsa ? usa.land : country ? country.land : { type: "FeatureCollection", features: allFeatures }));
+  base.lakes.attr("d", country ? geoPath(country.lakes) : inMiddle || inUsa ? null : geoPath(lakeShapes));
   landClip.attr("d", inMiddle ? geoPath(middle.land) : null);
-  base.borders.attr("d", geoPath(inMiddle ? middle.borders : inUsa ? usa.border : inAustria ? austria.border : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
+  base.borders.attr("d", geoPath(inMiddle ? middle.borders : inUsa ? usa.border : country ? country.border : borders)).attr("clip-path", inMiddle ? "url(#middle-land)" : null);
   drawRelief();
   redrawGuessed();
   redrawPicks();
@@ -1082,7 +1119,7 @@ function focusBounds(item, minDegrees) {
     geo = { type: "MultiPolygon", coordinates: geo.coordinates.filter((_, i) => areas[i] >= biggest * .15) };
   }
   const [[x0, y0], [x1, y1]] = geoPath.bounds(geo);
-  const min = minDegrees * ({ middle: .1, usa: .35, austria: .04 }[item.world] || 1) * viewW / 360 * (projection.scale() / (viewW / 6.2));
+  const min = minDegrees * ({ middle: .1, usa: .35, austria: .04, germany: .05 }[item.world] || 1) * viewW / 360 * (projection.scale() / (viewW / 6.2));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const hw = Math.max((x1 - x0) / 2, min / 2), hh = Math.max((y1 - y0) / 2, min / 2);
   return [[cx - hw, cy - hh], [cx + hw, cy + hh]];
@@ -1263,7 +1300,7 @@ const ME_ART = (() => {
   };
 })();
 const ME_ART_FOR = Object.fromEntries(Object.entries(MIDDLE.art).flatMap(([art, names]) => names.map(n => [n, art])));
-/* Countries and capitals show their country's flag. US and Austrian places show their state's, if they lie in one. */
+/* Countries and capitals show their country's flag. US, Austrian and German places show their state's, if they lie in one. */
 /* Sights on Earth and in the USA are named from their photo, not from a spot on the map. */
 function photoClue(item) {
   return item.kind === "sight" && item.world !== "middle" && !!photoFor(item);
@@ -1273,7 +1310,7 @@ function flagFor(item) {
     const country = item.kind === "capital" || item.kind === "sight" ? item.country : isCountryLike(item) ? item.names.en : null;
     return country && QUIZ.flags[country] ? `flags/${QUIZ.flags[country]}.svg` : null;
   }
-  if (item.world === "usa" || item.world === "austria") {
+  if (item.world === "usa" || item.world in COUNTRIES) {
     const state = item.kind === "country" ? item.names.en : item.state;
     return (window.BLANK_MAP_IMAGES?.[item.world]?.flag?.[state] || {}).src || null;
   }
@@ -2045,7 +2082,7 @@ const music = (() => {
   return {
     /* Plays the region's song, from the top if that's a change. */
     begin(region, newRound = false) {
-      const key = SONGS[region] ? region : { usa: "North America", austria: "Europe" }[REGIONS[region]?.world] || "World";
+      const key = SONGS[region] ? region : { usa: "North America", austria: "Europe", germany: "Europe" }[REGIONS[region]?.world] || "World";
       const list = PLAYLISTS[key];
       let next = song;
       if (newRound || !list.includes(song)) {

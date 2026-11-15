@@ -1,14 +1,14 @@
-"""Join tools/austria_content.py with map data and write ../austria.js.
+"""Join a country's content file, like tools/austria_content.py, with map data and write ../<country>.js.
 
-Usage: python -I build_austria.py <dir with the downloads below>
+Usage: python -I build_country.py <austria|germany> <dir with the downloads below>
 
 - ne_10m_admin_1_states_provinces.geojson, ne_10m_admin_0_countries.geojson and ne_10m_lakes.geojson (Natural Earth, public domain)
 
 Rivers and lakes come from OpenStreetMap (ODbL) through the Overpass API. The answers are saved next to the downloads
-as osm_rivers.json and osm_lakes.json, so later runs work offline. Cities and peaks get their position, and peaks
+as osm_<country>_rivers.json and osm_<country>_lakes.json, so later runs work offline. Cities and peaks get their position, and peaks
 their height, from Wikidata (CC0).
 """
-import json
+import re, json
 import pathlib
 import sys
 import time
@@ -16,12 +16,13 @@ import urllib.parse
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-import austria_content as content  # noqa: E402
 import build_images as wiki  # noqa: E402
 
-RAW = pathlib.Path(sys.argv[1])
-OUT = pathlib.Path(__file__).parent.parent / "austria.js"
-BOX = (46.3, 9.45, 49.05, 17.2)  # south, west, north, east
+COUNTRY = sys.argv[1]
+content = __import__(f"{COUNTRY}_content")
+RAW = pathlib.Path(sys.argv[2])
+OUT = pathlib.Path(__file__).parent.parent / f"{COUNTRY}.js"
+BOX = content.BOX  # south, west, north, east
 NEAR_BORDER = .02  # degrees: river points this close outside the border still count, for border rivers
 
 
@@ -86,7 +87,7 @@ region_of = {state: region for region, states in content.REGIONS.items() for sta
 shapes = {}
 for f in load("ne_10m_admin_1_states_provinces.geojson")["features"]:
     p = f["properties"]
-    if p["adm0_a3"] == "AUT":
+    if p["adm0_a3"] == content.ADM0:
         g = f["geometry"]
         polygons = [g["coordinates"]] if g["type"] == "Polygon" else g["coordinates"]
         shapes[by_ne[p["name"]]] = {"type": "MultiPolygon", "coordinates": [[rounded(ring) for ring in poly] for poly in polygons]}
@@ -96,8 +97,8 @@ states = [{"en": name, "de": de, "aliases": aliases, "tier": tier, "region": reg
            "geo": shapes[name], "facts": facts(f)} for name, (de, aliases, tier, _, title, f) in content.STATES.items()]
 
 # The country's outline, for cutting rivers off at the border.
-austria = next(f["geometry"] for f in load("ne_10m_admin_0_countries.geojson")["features"] if f["properties"]["ADM0_A3"] == "AUT")
-outline = [ring for poly in ([austria["coordinates"]] if austria["type"] == "Polygon" else austria["coordinates"]) for ring in poly]
+country = next(f["geometry"] for f in load("ne_10m_admin_0_countries.geojson")["features"] if f["properties"]["ADM0_A3"] == content.ADM0)
+outline = [ring for poly in ([country["coordinates"]] if country["type"] == "Polygon" else country["coordinates"]) for ring in poly]
 
 
 def inside(x, y):
@@ -121,19 +122,20 @@ def border_distance(x, y):
     return best
 
 
-def in_austria(x, y, margin=NEAR_BORDER):
+def in_country(x, y, margin=NEAR_BORDER):
     return inside(x, y) or border_distance(x, y) < margin
 
 
 # ---------- Rivers ----------
 def osm_names(names):
-    return "|".join(n.replace("|", "") for n in names)
+    # Overpass strings undo one level of backslashes, so the regex escapes for ( ) . get two (chr(92) is a backslash).
+    return "|".join(n.replace("|", "").replace("(", chr(92) * 2 + "(").replace(")", chr(92) * 2 + ")").replace(".", chr(92) * 2 + ".") for n in names)
 
 
 river_names = sorted({n for r in content.RIVERS.values() for n in r[4]})
 # Border rivers carry both languages, like "March / Morava", so either half may match.
 pattern = f"^({osm_names(river_names)})( / .*)?$|^.* / ({osm_names(river_names)})$"
-osm = overpass("osm_rivers.json", f'[out:json][timeout:240];way["waterway"="river"]["name"~"{pattern}"]{BOX};out geom;')
+osm = overpass(f"osm_{COUNTRY}_rivers.json", f'[out:json][timeout:240];way["waterway"="river"]["name"~"{pattern}"]{BOX};out geom;')
 ways = {}
 for w in osm["elements"]:
     for part in w["tags"]["name"].split(" / "):
@@ -164,7 +166,7 @@ for name, (de, aliases, tier, region, names, title, f) in content.RIVERS.items()
     for line in chain([l for n in names for l in ways.get(n, [])]):
         run = []
         for x, y in simplify(line, .002):
-            if in_austria(x, y):
+            if in_country(x, y):
                 run.append([x, y])
             elif run:
                 lines.append(run)
@@ -176,9 +178,10 @@ for name, (de, aliases, tier, region, names, title, f) in content.RIVERS.items()
     print(f"{name}: {len(lines)} lines, {sum(len(l) for l in lines)} points")
 
 # ---------- Lakes ----------
-lake_names = sorted({l[4] for l in content.LAKES.values() if l[4]})
+# A lake that OpenStreetMap splits into parts names them as a tuple, e.g. Lake Schwerin's inner and outer lake.
+lake_names = sorted({n for l in content.LAKES.values() if l[4] for n in ((l[4],) if isinstance(l[4], str) else l[4])})
 pattern = f"^({osm_names(lake_names)})( / .*)?$"
-osm = overpass("osm_lakes.json", f'[out:json][timeout:240];(way["natural"="water"]["name"~"{pattern}"]{BOX};'
+osm = overpass(f"osm_{COUNTRY}_lakes.json", f'[out:json][timeout:240];(way["natural"="water"]["name"~"{pattern}"]{BOX};'
                                  f'relation["natural"="water"]["name"~"{pattern}"]{BOX};);out geom;')
 
 
@@ -225,17 +228,19 @@ for f in load("ne_10m_lakes.geojson")["features"]:
 
 lakes = []
 for name, (de, aliases, tier, region, osm_name, title, f) in content.LAKES.items():
-    ring = best.get(osm_name)
-    assert ring, f"no lake data for {name}"
-    # A closed ring starts and ends on the same point, so it is simplified as two halves.
-    points, half = [p[:2] for p in ring], len(ring) // 2
-    shape = rounded(simplify(points[:half + 1], .0015) + simplify(points[half:], .0015)[1:], 4)
-    lakes.append({"en": name, "de": de, "aliases": aliases, "tier": tier, "region": region, "title": title, "shape": [[shape]], "facts": facts(f)})
-    print(f"{name}: {len(shape)} points")
+    shape = []
+    for part in (osm_name,) if osm_name is None or isinstance(osm_name, str) else osm_name:
+        ring = best.get(part)
+        assert ring, f"no lake data for {name} ({part})"
+        # A closed ring starts and ends on the same point, so it is simplified as two halves.
+        points, half = [p[:2] for p in ring], len(ring) // 2
+        shape.append([rounded(simplify(points[:half + 1], .0015) + simplify(points[half:], .0015)[1:], 4)])
+    lakes.append({"en": name, "de": de, "aliases": aliases, "tier": tier, "region": region, "title": title, "shape": shape, "facts": facts(f)})
+    print(f"{name}: {sum(len(r[0]) for r in shape)} points")
 
 # ---------- Cities and peaks, placed by Wikidata ----------
-asks = ([("austria", "capital", n, [c[5], f"{c[5]}, Austria"]) for n, c in content.CITIES.items()]
-        + [("austria", "mountain", n, [m[4], f"{m[4]} (mountain)", f"{m[4]} (Alps)", f"{m[4]} (Austria)"]) for n, m in content.MOUNTAINS.items()])
+asks = ([(COUNTRY, "capital", n, [c[5], f"{c[5]}, {content.NAME}"]) for n, c in content.CITIES.items()]
+        + [(COUNTRY, "mountain", n, [m[4], f"{m[4]} (mountain)", f"{m[4]} (Alps)", f"{m[4]} ({content.NAME})"]) for n, m in content.MOUNTAINS.items()])
 pages = wiki.resolve(asks)
 qid = {key[1:]: page["pageprops"]["wikibase_item"] for key, page in pages.items() if "wikibase_item" in page.get("pageprops", {})}
 values = " ".join(f"wd:{q}" for q in sorted(set(qid.values())))
@@ -252,18 +257,20 @@ for row in data["results"]["bindings"]:
 cities = []
 for name, (de, aliases, tier, state, is_capital, title, f) in content.CITIES.items():
     at = where.get(qid.get(("capital", name)))
-    assert at and in_austria(*at), f"no position for {name}: {at}"
-    cities.append({"en": name, "de": de, "aliases": aliases, "tier": tier, "state": state, "capital": is_capital, "title": title, "at": at, "facts": facts(f)})
+    assert at and in_country(*at), f"no position for {name}: {at}"
+    cities.append({"en": name, "de": de, "aliases": aliases, "tier": tier, "state": state, "capital": is_capital, "national": name == content.CAPITAL, "title": title, "at": at, "facts": facts(f)})
 mountains = []
 for name, (de, aliases, tier, state, title, f) in content.MOUNTAINS.items():
     q = qid.get(("mountain", name))
     at = where.get(q)
-    assert at and in_austria(*at, margin=.06) and height.get(q), f"no position or height for {name}: {at} {height.get(q)}"
+    if q and not height.get(q) and name in getattr(content, "HEIGHTS", {}):
+        height[q] = content.HEIGHTS[name]  # Wikidata lacks an elevation for a few peaks
+    assert at and in_country(*at, margin=.06) and height.get(q), f"no position or height for {name}: {at} {height.get(q)}"
     mountains.append({"en": name, "de": de, "aliases": aliases, "tier": tier, "state": state, "title": title, "at": at, "elevation": height[q], "facts": facts(f)})
     print(f"{name}: {height[q]} m at {at}")
 
 data = {"regions": list(content.REGIONS), "states": states, "cities": cities, "mountains": mountains, "rivers": rivers, "lakes": lakes}
-OUT.write_text("/* Generated by tools/build_austria.py from tools/austria_content.py. State borders and Lake Constance from Natural Earth "
+OUT.write_text(f"/* Generated by tools/build_country.py from tools/{COUNTRY}_content.py. State borders and Lake Constance from Natural Earth "
                "(public domain); other rivers and lakes (c) OpenStreetMap contributors, ODbL; positions and heights from Wikidata (CC0). */\n"
-               f"window.BLANK_MAP_AUSTRIA = {json.dumps(data, ensure_ascii=False, separators=(',', ':'))};\n", encoding="utf8")
+               f"window.BLANK_MAP_{COUNTRY.upper()} = {json.dumps(data, ensure_ascii=False, separators=(',', ':'))};\n", encoding="utf8")
 print("wrote", OUT, OUT.stat().st_size // 1024, "KB")

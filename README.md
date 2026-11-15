@@ -2,7 +2,7 @@
 
 A browser geography game. Name or find countries, capitals, mountains and rivers on an unlabelled world map, in German or English.
 
-There is also a USA map with the states, their capitals, mountains and rivers, an Austria map with its states, cities, mountains, rivers and lakes, and a Middle-earth map with its lands, places, mountains and rivers.
+There is also a USA map with the states, their capitals, mountains and rivers, Austria and Germany maps with their states, cities, mountains, rivers and lakes, and a Middle-earth map with its lands, places, mountains and rivers.
 
 ## Play it
 
@@ -103,7 +103,7 @@ The USA's states, capitals, mountains, rivers and facts live in `tools/usa_conte
 python tools/build_usa.py path/to/downloads
 ```
 
-Austria's states, cities, mountains, rivers and lakes live in `tools/austria_content.py`. `tools/build_austria.py` joins them with the map data and writes `austria.js`. It needs these downloads in one folder:
+Austria's states, cities, mountains, rivers and lakes live in `tools/austria_content.py`, and Germany's in `tools/germany_content.py`. `tools/build_country.py` joins one of them with the map data and writes `austria.js` or `germany.js`. It needs these downloads in one folder:
 
 - [ne_10m_admin_1_states_provinces.geojson](https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson)
 - [ne_10m_admin_0_countries.geojson](https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson)
@@ -112,10 +112,11 @@ Austria's states, cities, mountains, rivers and lakes live in `tools/austria_con
 It fetches rivers and lakes from OpenStreetMap through the Overpass API and saves the answers in the same folder, and looks up the cities' and peaks' positions and heights on Wikidata.
 
 ```bash
-python tools/build_austria.py path/to/downloads
+python tools/build_country.py austria path/to/downloads
+python tools/build_country.py germany path/to/downloads
 ```
 
-Sights for Earth, the USA and Austria live in `tools/sights_content.py`. `tools/build_sights.py` looks up their coordinates on Wikidata and writes `sights.js`. Run `tools/build_images.py` afterwards, so new sights get a photo: a sight's photo is its question, so sights without one are left out.
+Sights for Earth, the USA, Austria and Germany live in `tools/sights_content.py`. `tools/build_sights.py` looks up their coordinates on Wikidata and writes `sights.js`. Run `tools/build_images.py` afterwards, so new sights get a photo: a sight's photo is its question, so sights without one are left out.
 
 ```bash
 python tools/build_sights.py
@@ -140,7 +141,7 @@ python tools/build_data.py path/to/downloads
 
 [Natural Earth](https://www.naturalearthdata.com/), public domain, via [world-atlas](https://github.com/topojson/world-atlas).
 
-Austria: state borders and Lake Constance from Natural Earth, public domain. Its other rivers and lakes are © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the [Open Database License](https://opendatacommons.org/licenses/odbl/), so the river and lake shapes in `austria.js` are available under the ODbL too. Positions and heights of cities and peaks come from Wikidata, CC0.
+Austria and Germany: state borders and Lake Constance from Natural Earth, public domain. Their other rivers and lakes are © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the [Open Database License](https://opendatacommons.org/licenses/odbl/), so the river and lake shapes in `austria.js` and `germany.js` are available under the ODbL too. Positions and heights of cities and peaks come from Wikidata, CC0.
 
 US state borders: US Census Bureau, public domain, via [us-atlas](https://github.com/topojson/us-atlas). On the USA map, Alaska and Hawaii are moved into boxes below the mainland and Alaska is shrunk, so distances there are not to scale.
 

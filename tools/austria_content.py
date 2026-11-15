@@ -1,8 +1,11 @@
-"""The Austria map's places, difficulty tiers and facts. tools/build_austria.py joins them with map data into austria.js.
+"""The Austria map's places, difficulty tiers and facts. tools/build_country.py joins them with map data into austria.js.
 
 Tiers: 1 easy, 2 medium, 3 hard. Facts are (English, German) pairs; tools/more_facts/austria_*.json adds six more each.
 Regions follow Austria's official NUTS-1 groups. Titles are English Wikipedia articles, used for coordinates and photos.
 """
+
+NAME, ADM0, CAPITAL = "Austria", "AUT", "Vienna"
+BOX = (46.3, 9.45, 49.05, 17.2)  # south, west, north, east for the map data queries
 
 REGIONS = {
     "Eastern Austria": ["Vienna", "Lower Austria", "Burgenland"],

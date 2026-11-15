@@ -27,7 +27,7 @@ def coordinates(qids):
 
 
 def main():
-    worlds = {"earth": content.EARTH, "usa": content.USA, "austria": content.AUSTRIA}
+    worlds = {"earth": content.EARTH, "usa": content.USA, "austria": content.AUSTRIA, "germany": content.GERMANY}
     items = [(world, "sight", name, [entry[5]]) for world, sights in worlds.items() for name, entry in sights.items()]
     pages = wiki.resolve(items)
     qids = {key: page["pageprops"]["wikibase_item"] for key, page in pages.items() if "wikibase_item" in page.get("pageprops", {})}

@@ -1,8 +1,8 @@
-"""Find a freely licensed photo on Wikimedia Commons for every Earth, USA and Austria place, and write ../images.js.
+"""Find a freely licensed photo on Wikimedia Commons for every Earth, USA, Austria and Germany place, and write ../images.js.
 
 Usage: python -I build_images.py
 
-It reads data.js, usa.js and austria.js, looks each place up on English Wikipedia, takes the Wikidata image (or the Wikivoyage
+It reads data.js, usa.js, austria.js and germany.js, looks each place up on English Wikipedia, takes the Wikidata image (or the Wikivoyage
 banner, or the article's lead image), and keeps only photos under CC0, CC BY, CC BY-SA or in the public domain.
 The game stores just the address and the credit; players' browsers load the picture from Wikimedia.
 """
@@ -107,11 +107,12 @@ def places():
         out.append(("usa", "mountain", m["en"], [m["en"], f"{m['en']} (mountain)"]))
     for r in usa["rivers"]:
         out.append(("usa", "river", r["en"], river_titles(r["en"])))
-    # Austria keeps the right article title for each place, so no guessing is needed.
-    austria = load_js("austria.js")
-    for kind, key in (("state", "states"), ("capital", "cities"), ("mountain", "mountains"), ("river", "rivers"), ("water", "lakes")):
-        for x in austria[key]:
-            out.append(("austria", kind, x["en"], [x["title"]]))
+    # Austria and Germany keep the right article title for each place, so no guessing is needed.
+    for world in ("austria", "germany"):
+        country = load_js(f"{world}.js")
+        for kind, key in (("state", "states"), ("capital", "cities"), ("mountain", "mountains"), ("river", "rivers"), ("water", "lakes")):
+            for x in country[key]:
+                out.append((world, kind, x["en"], [x["title"]]))
     return [(w, k, n, [TITLES[(w, k, n)]] if (w, k, n) in TITLES else titles) for w, k, n, titles in out]
 
 
@@ -249,7 +250,7 @@ def main():
             result[world].setdefault("flag", {})[name] = {k: info[k] for k in ("src", "w", "h")}
         else:
             print("no public-domain flag:", world, name)
-    print({w: len(result[w].get("flag", {})) for w in ("usa", "austria")}, "state flags")
+    print({w: len(result[w].get("flag", {})) for w in ("usa", "austria", "germany")}, "state flags")
     total = sum(len(b) for w in result.values() for k, b in w.items() if k != "flag")
     print(f"{total} pictures, {len(missing)} places without one")
     for m in missing:
