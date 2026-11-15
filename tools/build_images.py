@@ -1,8 +1,8 @@
-"""Find a freely licensed photo on Wikimedia Commons for every Earth and USA place, and write ../images.js.
+"""Find a freely licensed photo on Wikimedia Commons for every Earth, USA and Austria place, and write ../images.js.
 
 Usage: python -I build_images.py
 
-It reads data.js and usa.js, looks each place up on English Wikipedia, takes the Wikidata image (or the Wikivoyage
+It reads data.js, usa.js and austria.js, looks each place up on English Wikipedia, takes the Wikidata image (or the Wikivoyage
 banner, or the article's lead image), and keeps only photos under CC0, CC BY, CC BY-SA or in the public domain.
 The game stores just the address and the credit; players' browsers load the picture from Wikimedia.
 """
@@ -26,7 +26,8 @@ KEYWORDS = {
     "capital": r"city|capital|town|municipality|village|commune|district|seat|community|metropolis|settlement|atoll",
     "mountain": r"mountain|peak|volcano|summit|massif|hill|dome|monolith|monument|memorial|point",
     "river": r"river|waterway|stream|tributary",
-    "state": r"state",
+    # Vienna is a state and a city at once, and its article describes the city.
+    "state": r"state|city",
     # Sights are described in every way imaginable, from "tower in Paris" to "national park", so any page will do.
     "sight": r".",
     "water": r"ocean|sea|lake|gulf|bay|bight|strait|channel|passage|estuary|reservoir|body of water",
@@ -106,6 +107,11 @@ def places():
         out.append(("usa", "mountain", m["en"], [m["en"], f"{m['en']} (mountain)"]))
     for r in usa["rivers"]:
         out.append(("usa", "river", r["en"], river_titles(r["en"])))
+    # Austria keeps the right article title for each place, so no guessing is needed.
+    austria = load_js("austria.js")
+    for kind, key in (("state", "states"), ("capital", "cities"), ("mountain", "mountains"), ("river", "rivers"), ("water", "lakes")):
+        for x in austria[key]:
+            out.append(("austria", kind, x["en"], [x["title"]]))
     return [(w, k, n, [TITLES[(w, k, n)]] if (w, k, n) in TITLES else titles) for w, k, n, titles in out]
 
 
@@ -234,16 +240,16 @@ def main():
         bucket = result.setdefault(world, {}).setdefault("country" if kind == "state" else kind, {})
         bucket[name] = {k: pick[k] for k in ("src", "w", "h", "by", "license")}
     # State flags are almost all in the public domain. Only those are used, so they need no credit line.
-    states = {name: pages[("usa", "state", name)]["pageprops"]["wikibase_item"] for (world, kind, name) in pages if kind == "state"}
-    flags = state_flags(sorted(states.values()))
+    states = {(world, name): page["pageprops"]["wikibase_item"] for (world, kind, name), page in pages.items() if kind == "state"}
+    flags = state_flags(sorted(set(states.values())))
     flag_info = file_info(list(flags.values()), width=250)
-    for name, qid in states.items():
+    for (world, name), qid in states.items():
         info = flag_info.get(flags.get(qid))
         if info and re.match(r"public domain|pd|cc0", info["license"], re.I):
-            result["usa"].setdefault("flag", {})[name] = {k: info[k] for k in ("src", "w", "h")}
+            result[world].setdefault("flag", {})[name] = {k: info[k] for k in ("src", "w", "h")}
         else:
-            print("no public-domain flag:", name)
-    print(len(result["usa"].get("flag", {})), "state flags")
+            print("no public-domain flag:", world, name)
+    print({w: len(result[w].get("flag", {})) for w in ("usa", "austria")}, "state flags")
     total = sum(len(b) for w in result.values() for k, b in w.items() if k != "flag")
     print(f"{total} pictures, {len(missing)} places without one")
     for m in missing:
